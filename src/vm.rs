@@ -5,7 +5,7 @@ use crate::{op, Pgm};
 
 const STACK_SIZE: usize = 1000;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RuntimeError {
     EndOfProgram,
     InvalidOperation(u8),
@@ -14,19 +14,7 @@ pub enum RuntimeError {
     InvalidBranch,
     DivisionByZero,
     CallError,
-}
-
-pub struct Fun {
-    name: String,
-    fun: fn(&mut Vec<i64>) -> Result<(), RuntimeError>,
- //   pop: u8,
-   // push: u8,
-}
-
-impl fmt::Debug for Fun {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Fun [{}]", &self.name)
-    }
+    UnknownFunction(String)
 }
 
 pub struct VM {
@@ -34,7 +22,7 @@ pub struct VM {
     pc: usize,
     op_cnt: usize,
     fstack: Vec<usize>,
-    funs: HashMap<String, fn(&mut Vec<i64>) -> Result<(), RuntimeError>>,
+    funs: HashMap<String, fn(&mut [i64]) -> Result<(), RuntimeError>>,
 }
 
 impl fmt::Debug for VM {
@@ -44,7 +32,7 @@ impl fmt::Debug for VM {
 }
 
 
-fn bogus(args: &mut Vec<i64>) -> Result<(), RuntimeError> {
+fn bogus(args: &mut [i64]) -> Result<(), RuntimeError> {
     println!("bogus");
     Ok(())
 }
@@ -60,16 +48,16 @@ impl VM {
         };
         let f = bogus;
         vm.funs.insert(String::from("bogus"), bogus);
-        vm.funs.insert(String::from("sayf"), |v: &mut Vec<i64>| -> Result<(), RuntimeError> {
-            let i = v.pop().ok_or(RuntimeError::CallError)?;
+        vm.funs.insert(String::from("sayf"), |v: &mut [i64]| -> Result<(), RuntimeError> {
+            let i = v.get(0).ok_or(RuntimeError::CallError)?;
             let f = f64::from_be_bytes(i.to_be_bytes());
             println!("f: {}", f);
             Ok(())
         });
-        vm.funs.insert(String::from("sin"), |v: &mut Vec<i64>| -> Result<(), RuntimeError> {
-            let i = v.pop().ok_or(RuntimeError::CallError)?;
-            let f = f64::from_be_bytes(i.to_be_bytes());
-            v.push(i64::from_be_bytes(i.to_be_bytes()));
+        vm.funs.insert(String::from("sin"), |v: &mut [i64]| -> Result<(), RuntimeError> {
+            let i = v.get(0).ok_or(RuntimeError::CallError)?;
+            let f = f64::from_be_bytes(i.to_be_bytes()).sin();
+            v[0] = i64::from_be_bytes(f.to_be_bytes());
             Ok(())
         });
         vm
@@ -171,6 +159,12 @@ impl VM {
         self.stack.clear();
         self.pc = 0;
         self.op_cnt = 0;
+
+        for e in &pgm.ext {
+            if !self.funs.contains_key(e) {
+                return Err(RuntimeError::UnknownFunction(String::from(e)));
+            }
+        }
 
         loop {
             println!("{:?}", self);
@@ -351,17 +345,49 @@ impl VM {
                 let d = self.fstack.pop().ok_or(RuntimeError::StackUnderflow)?;
                 self.pc = d;
             }
+            op::ECALL => {
+                let n = self.load_u16(pgm)?;
+                let ename = pgm.ext.get(n as usize).ok_or(RuntimeError::CallError)?;
+                let fu = self.funs.get(ename).ok_or(RuntimeError::CallError)?.clone();
+                let n = self.pop()?;
+                if n < 0 || n > 255 {
+                    return Err(RuntimeError::CallError);
+                }
+                let n = n as usize;
+                if self.stack.len() < n {
+                    return Err(RuntimeError::StackUnderflow);
+                }
+                let start = self.stack.len() - n;
+                let a = &mut self.stack[start..];
+                fu(a)?;
+            }
             op::DEV => {
                 let fu = self.funs.get("sayf").unwrap().clone();
                 let n = self.pop()?;
-                let mut a: Vec<i64> = vec![];
-                for _ in 0..n {
-                    a.push(self.pop()?);
+                if n < 0 || n > 255 {
+                    return Err(RuntimeError::CallError);
                 }
-                fu(&mut a)?;
-                while let Some(v) = a.pop() {
-                    self.push(v)?;
+                let n = n as usize;
+                if self.stack.len() < n {
+                    return Err(RuntimeError::StackUnderflow);
                 }
+                let start = self.stack.len() - n;
+                let a = &mut self.stack[start..];
+                fu(a)?;
+            }
+            op::DEV2 => {
+                let fu = self.funs.get("sin").unwrap().clone();
+                let n = self.pop()?;
+                if n < 0 || n > 255 {
+                    return Err(RuntimeError::CallError);
+                }
+                let n = n as usize;
+                if self.stack.len() < n {
+                    return Err(RuntimeError::StackUnderflow);
+                }
+                let start = self.stack.len() - n;
+                let a = &mut self.stack[start..];
+                fu(a)?;
             }
             _ => {
                 return Err(RuntimeError::InvalidOperation(opcode));

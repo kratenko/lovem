@@ -1,6 +1,13 @@
+ab:
 push_f32 100
 push_i 1
-dev
+ecall sayf
+push_i 1
+ecall sin
+abd:
+push_i 1
+ecall sayf
+pop
 fin
 
 #call sub

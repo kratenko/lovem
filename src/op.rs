@@ -26,6 +26,8 @@ pub const CALL: u8 = 0x25;
 pub const RET: u8 = 0x26;
 
 pub const DEV: u8 = 0x27;
+pub const DEV2: u8 = 0x28;
+pub const ECALL: u8 = 0x29;
 
 pub const PUSH_RND: u8 = 0x30;
 pub const PUSH_F32: u8 = 0x31;

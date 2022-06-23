@@ -9,8 +9,9 @@ pub fn main() {
     println!("{:?}", &p);
     if let Some(e) = &p.error {
         println!("Error in line {}: {:?}", &p.line_number, e);
+        return;
     }
-    let p= p.compile();
+    let p= p.compile().unwrap();
 
     println!("PGM: {:?}", &p);
     println!("sz: {}", &p.text.len());

@@ -2,12 +2,14 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
+use std::ops::Deref;
 use std::str::FromStr;
 use lazy_static::lazy_static;
 use regex::Regex;
 use crate::{op, Pgm};
+use crate::vm::RuntimeError;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AsmError {
     InvalidLine,
     LineTooLong,
@@ -19,6 +21,7 @@ pub enum AsmError {
     MissingArgument,
     InvalidArgument,
     BranchTooLong,
+    TooManyExternalSymbols,
 }
 
 #[derive(Debug)]
@@ -39,6 +42,7 @@ impl Operation {
 #[derive(Debug)]
 pub struct AsmPgm {
     pub labels: HashMap<String, usize>,
+    pub exts: Vec<String>,
     pub operations: Vec<Operation>,
     pub line_number: usize,
     pub text_pos: usize,
@@ -49,6 +53,7 @@ lazy_static! {
     static ref LABEL_LINE_RE: Regex = regex::Regex::new(r"^([^:\s]+):$").unwrap();
     static ref LABEL_NAME_RE: Regex = regex::Regex::new(r"^\.?[A-Za-z][0-9A-Za-z]*$").unwrap();
     static ref OP_LINE_RE: Regex = regex::Regex::new(r"^(\S+)(?:\s+(.+))?$").unwrap();
+    static ref EXT_NAME_RE: Regex = regex::Regex::new(r"^?[A-Za-z][0-9A-Za-z]*$").unwrap();
 }
 
 impl AsmPgm {
@@ -125,6 +130,33 @@ impl AsmPgm {
         } else {
             Err(AsmError::MissingArgument)
         }
+
+    }
+    fn parse_op_ext(&mut self, opcode: u8, parm: Option<&str>) -> Result<(), AsmError> {
+        let parm = parm.ok_or(AsmError::MissingArgument)?;
+        if !EXT_NAME_RE.is_match(parm) {
+            return Err(AsmError::InvalidArgument);
+        }
+
+        let index = if let Some(index) = self.exts.iter().position(|r| r == parm) {
+            index
+        } else {
+            self.exts.push(String::from(parm));
+            self.exts.len() - 1
+        };
+        if index > 0xffff {
+            return Err(AsmError::TooManyExternalSymbols);
+        }
+        let index = index as u16;
+        let o = Operation {
+            opcode,
+            line_number: self.line_number,
+            pos: self.text_pos,
+            parm: index.to_be_bytes().to_vec(),
+            label: None,
+        };
+        self.push_op(o);
+        Ok(())
     }
 
     fn push_op(&mut self, o: Operation) {
@@ -178,6 +210,10 @@ impl AsmPgm {
             "call" => self.parse_op_label(op::CALL, parm),
             "ret" => self.parse_op_no_parm(op::RET, parm),
             "dev" => self.parse_op_no_parm(op::DEV, parm),
+            "dev2" => self.parse_op_no_parm(op::DEV2, parm),
+            "ecall" => {
+                self.parse_op_ext(op::ECALL, parm)
+            },
             "push_i" => {
                 // macro
                 let parm = parm.ok_or(AsmError::MissingArgument)?;
@@ -243,6 +279,7 @@ impl AsmPgm {
     pub fn parse(file: File) -> AsmPgm {
         let mut p = AsmPgm {
             labels: HashMap::new(),
+            exts: vec![],
             operations: vec![],
             line_number: 0,
             text_pos: 0,
@@ -285,14 +322,18 @@ impl AsmPgm {
         p
     }
 
-    pub fn compile(&self) -> Pgm {
+    pub fn compile(&self) -> Result<Pgm, AsmError> {
         let mut code: Vec<u8> = vec![];
         for o in &self.operations {
             code.push(o.opcode);
             code.extend(&o.parm);
         }
-        Pgm{
-            text: code
+        if let Some(e) = &self.error {
+            return Err(e.clone());
         }
+        Ok(Pgm{
+            ext: self.exts.clone(),
+            text: code,
+        })
     }
 }
