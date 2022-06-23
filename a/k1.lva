@@ -1,0 +1,17 @@
+push_i 3
+loop:
+sub_1
+dup
+ifgt loop
+pop
+fin
+
+#redo:
+#push_rnd
+#push_i -123
+#and
+# sd
+#push_u8 0x1f  # sd
+#  sub
+#ifgt   redo
+#fin

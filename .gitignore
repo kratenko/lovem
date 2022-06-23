@@ -1,0 +1,12 @@
+/target
+# ignore Cargo.lock for libraries
+/Cargo.lock
+
+# editors, IDEs, etc - just to keep repo sane and clean
+# JetBrains
+.idea
+# Apple
+**/.DS_Store
+# vim
+**/.*.swp
+**/*~
