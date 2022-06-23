@@ -1,13 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
-use std::ops::Deref;
-use std::str::FromStr;
 use lazy_static::lazy_static;
 use regex::Regex;
 use crate::{op, Pgm};
-use crate::vm::RuntimeError;
 
 #[derive(Debug, Clone)]
 pub enum AsmError {
@@ -22,6 +19,7 @@ pub enum AsmError {
     InvalidArgument,
     BranchTooLong,
     TooManyExternalSymbols,
+    UndefinedGlobal(String),
 }
 
 #[derive(Debug)]
@@ -42,6 +40,7 @@ impl Operation {
 #[derive(Debug)]
 pub struct AsmPgm {
     pub labels: HashMap<String, usize>,
+    pub globals: HashSet<String>,
     pub exts: Vec<String>,
     pub operations: Vec<Operation>,
     pub line_number: usize,
@@ -211,6 +210,14 @@ impl AsmPgm {
             "ret" => self.parse_op_no_parm(op::RET, parm),
             "dev" => self.parse_op_no_parm(op::DEV, parm),
             "dev2" => self.parse_op_no_parm(op::DEV2, parm),
+            "global" => {
+                let parm = parm.ok_or(AsmError::MissingArgument)?;
+                if !EXT_NAME_RE.is_match(parm) {
+                    return Err(AsmError::InvalidArgument);
+                }
+                self.globals.insert(String::from(parm));
+                Ok(())
+            }
             "ecall" => {
                 self.parse_op_ext(op::ECALL, parm)
             },
@@ -279,6 +286,7 @@ impl AsmPgm {
     pub fn parse(file: File) -> AsmPgm {
         let mut p = AsmPgm {
             labels: HashMap::new(),
+            globals: HashSet::new(),
             exts: vec![],
             operations: vec![],
             line_number: 0,
@@ -331,9 +339,15 @@ impl AsmPgm {
         if let Some(e) = &self.error {
             return Err(e.clone());
         }
+        let mut labels = HashMap::new();
+        for n in &self.globals {
+            let pos = self.labels.get(n).ok_or(AsmError::UndefinedGlobal(String::from(n)))?;
+            labels.insert(String::from(n), *pos);
+        }
         Ok(Pgm{
             ext: self.exts.clone(),
             text: code,
+            labels,
         })
     }
 }

@@ -1,13 +1,20 @@
-ab:
+global main
+global other
+
+main:
 push_f32 100
 push_i 1
 ecall sayf
 push_i 1
 ecall sin
-abd:
 push_i 1
 ecall sayf
 pop
+fin
+
+other:
+push_i 0
+ecall bogus
 fin
 
 #call sub

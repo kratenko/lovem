@@ -14,7 +14,7 @@ pub enum RuntimeError {
     InvalidBranch,
     DivisionByZero,
     CallError,
-    UnknownFunction(String)
+    UnknownFunction(String),
 }
 
 pub struct VM {
@@ -32,7 +32,7 @@ impl fmt::Debug for VM {
 }
 
 
-fn bogus(args: &mut [i64]) -> Result<(), RuntimeError> {
+fn bogus(_: &mut [i64]) -> Result<(), RuntimeError> {
     println!("bogus");
     Ok(())
 }
@@ -46,7 +46,6 @@ impl VM {
             fstack: vec![],
             funs: Default::default()
         };
-        let f = bogus;
         vm.funs.insert(String::from("bogus"), bogus);
         vm.funs.insert(String::from("sayf"), |v: &mut [i64]| -> Result<(), RuntimeError> {
             let i = v.get(0).ok_or(RuntimeError::CallError)?;
@@ -155,10 +154,15 @@ impl VM {
         Ok(f32::from_be_bytes(bb))
     }
 
-    pub fn run(&mut self, pgm: &Pgm) -> Result<(), RuntimeError> {
+    pub fn run(&mut self, pgm: &Pgm, label: &str) -> Result<(), RuntimeError> {
         self.stack.clear();
-        self.pc = 0;
         self.op_cnt = 0;
+
+        self.pc = if label == "" {
+            0
+        } else {
+            *pgm.labels.get(label).ok_or(RuntimeError::CallError)?
+        };
 
         for e in &pgm.ext {
             if !self.funs.contains_key(e) {
