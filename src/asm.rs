@@ -134,82 +134,86 @@ impl AsmPgm {
 
     fn parse_op(&mut self, opname: &str, parm: Option<&str>) -> Result<(), AsmError> {
         match opname {
-            "const_0" => {
-                self.parse_op_no_parm(op::CONST_0, parm)
-            }
-            "const_1" => {
-                self.parse_op_no_parm(op::CONST_1, parm)
-            }
-            "push_rnd" => {
-                self.parse_op_no_parm(op::PUSH_RND, parm)
-            }
+            "const_0" => self.parse_op_no_parm(op::CONST_0, parm),
+            "const_1" => self.parse_op_no_parm(op::CONST_1, parm),
+            "fconst_0" => self.parse_op_no_parm(op::FCONST_0, parm),
+            "fconst_1" => self.parse_op_no_parm(op::FCONST_1, parm),
+            "push_rnd" => self.parse_op_no_parm(op::PUSH_RND, parm),
             "push_u8" => {
-                if let Some(parm) = parm {
-                    let v = parse_int::parse::<u8>(parm).or(Err(AsmError::InvalidArgument))?;
-                    self.push_op_1_parm(op::PUSH_U8, v)
-                } else {
-                    Err(AsmError::MissingArgument)
-                }
+                let parm = parm.ok_or(AsmError::MissingArgument)?;
+                let v = parse_int::parse::<u8>(parm).or(Err(AsmError::InvalidArgument))?;
+                self.push_op_1_parm(op::PUSH_U8, v)
             }
-            "and" => {
-                self.parse_op_no_parm(op::AND, parm)
-            }
-            "sub" => {
-                self.parse_op_no_parm(op::SUB, parm)
-            }
-            "fin" => {
-                self.parse_op_no_parm(op::FIN, parm)
-            }
-            "dup" => {
-                self.parse_op_no_parm(op::DUP, parm)
-            }
-            "pop" => {
-                self.parse_op_no_parm(op::POP, parm)
-            }
-            "ifgt" => {
-                self.parse_op_label(op::IFGT, parm)
-            }
+            "and" => self.parse_op_no_parm(op::AND, parm),
+            "sub" => self.parse_op_no_parm(op::SUB, parm),
+            "fin" => self.parse_op_no_parm(op::FIN, parm),
+            "dup" => self.parse_op_no_parm(op::DUP, parm),
+            "pop" => self.parse_op_no_parm(op::POP, parm),
+            "ifgt" => self.parse_op_label(op::IFGT, parm),
             "add_1" => self.parse_op_no_parm(op::ADD_1, parm),
             "sub_1" => self.parse_op_no_parm(op::SUB_1, parm),
+            "mul" => self.parse_op_no_parm(op::MUL, parm),
+            "div" => self.parse_op_no_parm(op::DIV, parm),
+            "mod" => self.parse_op_no_parm(op::MOD, parm),
+            "fadd" => self.parse_op_no_parm(op::FADD, parm),
+            "fsub" => self.parse_op_no_parm(op::FSUB, parm),
+            "fmul" => self.parse_op_no_parm(op::FMUL, parm),
+            "fdiv" => self.parse_op_no_parm(op::FDIV, parm),
+            "push_f32" => {
+                let parm = parm.ok_or(AsmError::MissingArgument)?;
+                let v = parm.parse::<f32>().or(Err(AsmError::InvalidArgument))?;
+                let b = v.to_be_bytes();
+                let o = Operation { opcode: op::PUSH_F32, line_number: self.line_number, pos: self.text_pos, parm: b.to_vec(), label: None };
+                self.push_op(o);
+                Ok(())
+            }
+            "push_f64" => {
+                let parm = parm.ok_or(AsmError::MissingArgument)?;
+                let v = parm.parse::<f64>().or(Err(AsmError::InvalidArgument))?;
+                let b = v.to_be_bytes();
+                let o = Operation { opcode: op::PUSH_F64, line_number: self.line_number, pos: self.text_pos, parm: b.to_vec(), label: None };
+                self.push_op(o);
+                Ok(())
+            }
+            "call" => self.parse_op_label(op::CALL, parm),
+            "ret" => self.parse_op_no_parm(op::RET, parm),
+            "dev" => self.parse_op_no_parm(op::DEV, parm),
             "push_i" => {
                 // macro
-                if let Some(parm) = parm {
-                    let v = parse_int::parse::<i64>(parm).or(Err(AsmError::InvalidArgument))?;
-                    match v {
-                        0 => self.push_op_no_parm(op::CONST_0),
-                        1 => self.push_op_no_parm(op::CONST_1),
-                        2..=255 => self.push_op_1_parm(op::PUSH_U8, v as u8),
-                        0x100..=0xffff => {
-                            let b = (v as u16).to_be_bytes();
-                            self.push_op_2_parms(op::PUSH_U16, b[0], b[1])
-                        }
-                        0x10000..=0xffffffff => {
-                            let b = (v as u32).to_be_bytes();
-                            self.push_op_4_parms(op::PUSH_U32, b[0], b[1], b[2], b[3])
-                        }
-                        -0xff..=-1 => {
-                            self.push_op_1_parm(op::PUSH_U8, -v as u8)?;
-                            self.push_op_no_parm(op::INV)
-                        }
-                        -0xffff..=-0x100 => {
-                            let b = (-v as u16).to_be_bytes();
-                            self.push_op_2_parms(op::PUSH_U16, b[0], b[1])?;
-                            self.push_op_no_parm(op::INV)
-                        }
-                        -0xffffffff..=-0x10000 => {
-                            let b = (-v as u32).to_be_bytes();
-                            self.push_op_4_parms(op::PUSH_U32, b[0], b[1], b[2], b[3])?;
-                            self.push_op_no_parm(op::INV)
-                        }
-                        _ => {
-                            let b = v.to_be_bytes();
-                            let o = Operation { opcode: op::PUSH_I64, line_number: self.line_number, pos: self.text_pos, parm: b.to_vec(), label: None };
-                            self.push_op(o);
-                            Ok(())
-                        }
+                let parm = parm.ok_or(AsmError::MissingArgument)?;
+                let v = parse_int::parse::<i64>(parm).or(Err(AsmError::InvalidArgument))?;
+                match v {
+                    0 => self.push_op_no_parm(op::CONST_0),
+                    1 => self.push_op_no_parm(op::CONST_1),
+                    2..=255 => self.push_op_1_parm(op::PUSH_U8, v as u8),
+                    0x100..=0xffff => {
+                        let b = (v as u16).to_be_bytes();
+                        self.push_op_2_parms(op::PUSH_U16, b[0], b[1])
                     }
-                } else {
-                    Err(AsmError::MissingArgument)
+                    0x10000..=0xffffffff => {
+                        let b = (v as u32).to_be_bytes();
+                        self.push_op_4_parms(op::PUSH_U32, b[0], b[1], b[2], b[3])
+                    }
+                    -0xff..=-1 => {
+                        self.push_op_1_parm(op::PUSH_U8, -v as u8)?;
+                        self.push_op_no_parm(op::INV)
+                    }
+                    -0xffff..=-0x100 => {
+                        let b = (-v as u16).to_be_bytes();
+                        self.push_op_2_parms(op::PUSH_U16, b[0], b[1])?;
+                        self.push_op_no_parm(op::INV)
+                    }
+                    -0xffffffff..=-0x10000 => {
+                        let b = (-v as u32).to_be_bytes();
+                        self.push_op_4_parms(op::PUSH_U32, b[0], b[1], b[2], b[3])?;
+                        self.push_op_no_parm(op::INV)
+                    }
+                    _ => {
+                        let b = v.to_be_bytes();
+                        let o = Operation { opcode: op::PUSH_I64, line_number: self.line_number, pos: self.text_pos, parm: b.to_vec(), label: None };
+                        self.push_op(o);
+                        Ok(())
+                    }
                 }
             }
             _ => Err(AsmError::UnknownOperation(String::from(opname)))

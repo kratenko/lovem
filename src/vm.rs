@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use std::fmt;
 use rand::Rng;
 use crate::{op, Pgm};
 
@@ -6,26 +8,71 @@ const STACK_SIZE: usize = 1000;
 #[derive(Debug)]
 pub enum RuntimeError {
     EndOfProgram,
-    InvalidOperation,
+    InvalidOperation(u8),
     StackUnderflow,
     StackOverflow,
     InvalidBranch,
+    DivisionByZero,
+    CallError,
 }
 
-#[derive(Debug)]
+pub struct Fun {
+    name: String,
+    fun: fn(&mut Vec<i64>) -> Result<(), RuntimeError>,
+ //   pop: u8,
+   // push: u8,
+}
+
+impl fmt::Debug for Fun {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Fun [{}]", &self.name)
+    }
+}
+
 pub struct VM {
     stack: Vec<i64>,
     pc: usize,
     op_cnt: usize,
+    fstack: Vec<usize>,
+    funs: HashMap<String, fn(&mut Vec<i64>) -> Result<(), RuntimeError>>,
+}
+
+impl fmt::Debug for VM {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "VM {{ pc: {}, op_cnt: {}, fstack: {:?}, stack: {:?} }}", self.pc, self.op_cnt, &self.fstack, &self.stack)
+    }
+}
+
+
+fn bogus(args: &mut Vec<i64>) -> Result<(), RuntimeError> {
+    println!("bogus");
+    Ok(())
 }
 
 impl VM {
     pub fn new() -> VM {
-        VM{
+        let mut vm = VM{
             stack: Vec::with_capacity(STACK_SIZE),
             pc: 0,
-            op_cnt: 0
-        }
+            op_cnt: 0,
+            fstack: vec![],
+            funs: Default::default()
+        };
+        let f = bogus;
+        vm.funs.insert(String::from("bogus"), bogus);
+        vm.funs.insert(String::from("sayf"), |v: &mut Vec<i64>| -> Result<(), RuntimeError> {
+            let i = v.pop().ok_or(RuntimeError::CallError)?;
+            let f = f64::from_be_bytes(i.to_be_bytes());
+            println!("f: {}", f);
+            Ok(())
+        });
+        vm.funs.insert(String::from("sin"), |v: &mut Vec<i64>| -> Result<(), RuntimeError> {
+            let i = v.pop().ok_or(RuntimeError::CallError)?;
+            let f = f64::from_be_bytes(i.to_be_bytes());
+            v.push(i64::from_be_bytes(i.to_be_bytes()));
+            Ok(())
+        });
+        vm
     }
 
     fn pop(&mut self) -> Result<i64, RuntimeError> {
@@ -39,6 +86,15 @@ impl VM {
         } else {
             Err(RuntimeError::StackOverflow)
         }
+    }
+
+    fn pop_f64(&mut self) -> Result<f64, RuntimeError> {
+        let i = self.pop()?;
+        Ok(f64::from_be_bytes(i.to_be_bytes()))
+    }
+
+    fn push_f64(&mut self, v: f64) -> Result<(), RuntimeError> {
+        self.push(i64::from_be_bytes(v.to_be_bytes()))
     }
 
     fn load_u8(&mut self, pgm: &Pgm) -> Result<u8, RuntimeError> {
@@ -103,6 +159,14 @@ impl VM {
         Ok(v)
     }
 
+    fn load_f32(&mut self, pgm: &Pgm) -> Result<f32, RuntimeError> {
+        let mut bb: [u8;4] = [0; 4];
+        for n in 0..4 {
+            bb[n] = self.load_u8(pgm)?;
+        }
+        Ok(f32::from_be_bytes(bb))
+    }
+
     pub fn run(&mut self, pgm: &Pgm) -> Result<(), RuntimeError> {
         self.stack.clear();
         self.pc = 0;
@@ -145,6 +209,8 @@ impl VM {
             }
             op::CONST_0 => self.push(0)?,
             op::CONST_1 => self.push(1)?,
+            op::FCONST_0 => self.push_f64(0f64)?,
+            op::FCONST_1 => self.push_f64(1f64)?,
             op::PUSH_U8 => {
                 let v = self.load_u8(pgm)?;
                 self.push(v as i64)?;
@@ -178,6 +244,47 @@ impl VM {
             op::SUB_1 => {
                 let a = self.pop()?;
                 self.push(a - 1)?;
+            }
+            op::MUL => {
+                let b = self.pop()?;
+                let a = self.pop()?;
+                self.push(a * b)?;
+            }
+            op::DIV => {
+                let b = self.pop()?;
+                if b == 0 {
+                    return Err(RuntimeError::DivisionByZero);
+                }
+                let a = self.pop()?;
+                self.push(a / b)?;
+            }
+            op::MOD => {
+                let b = self.pop()?;
+                if b == 0 {
+                    return Err(RuntimeError::DivisionByZero);
+                }
+                let a = self.pop()?;
+                self.push(a % b)?;
+            }
+            op::FADD => {
+                let b = self.pop_f64()?;
+                let a = self.pop_f64()?;
+                self.push_f64(a + b)?;
+            }
+            op::FSUB => {
+                let b = self.pop_f64()?;
+                let a = self.pop_f64()?;
+                self.push_f64(a - b)?;
+            }
+            op::FMUL => {
+                let b = self.pop_f64()?;
+                let a = self.pop_f64()?;
+                self.push_f64(a * b)?;
+            }
+            op::FDIV => {
+                let b = self.pop_f64()?;
+                let a = self.pop_f64()?;
+                self.push_f64(a / b)?;
             }
             op::INV => {
                 let a = -self.pop()?;
@@ -231,10 +338,36 @@ impl VM {
             op::POP => {
                 self.pop()?;
             }
+            op::PUSH_F32 => {
+                let f = self.load_f32(pgm)? as f64;
+                self.push_f64(f)?;
+            }
+            op::CALL => {
+                let offset = self.load_i16(pgm)?;
+                self.fstack.push(self.pc);
+                self.branch(pgm, offset)?;
+            }
+            op::RET => {
+                let d = self.fstack.pop().ok_or(RuntimeError::StackUnderflow)?;
+                self.pc = d;
+            }
+            op::DEV => {
+                let fu = self.funs.get("sayf").unwrap().clone();
+                let n = self.pop()?;
+                let mut a: Vec<i64> = vec![];
+                for _ in 0..n {
+                    a.push(self.pop()?);
+                }
+                fu(&mut a)?;
+                while let Some(v) = a.pop() {
+                    self.push(v)?;
+                }
+            }
             _ => {
-                return Err(RuntimeError::InvalidOperation);
+                return Err(RuntimeError::InvalidOperation(opcode));
             }
         }
         Ok(())
     }
+
 }
