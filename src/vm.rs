@@ -17,6 +17,10 @@ pub enum RuntimeError {
     UnknownFunction(String),
 }
 
+pub struct Frame {
+
+}
+
 pub struct VM {
     stack: Vec<i64>,
     pc: usize,
