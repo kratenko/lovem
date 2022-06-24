@@ -17,6 +17,9 @@ theme:
 
 plugins:
   - search
+  - exclude:
+      glob:
+        - drafts/*
   - minify:
       #minify_html: true
       #minify_js: true
@@ -67,7 +70,10 @@ markdown_extensions:
 
 nav:
   - The Journey: index.md
-#  - Entries:
-#    - 2022/making-virtual-a-reality.md
-#    - 2022/what-is-a-virtual-machine-anyway.md
-#    - 2022/lovem-again.md
+  - Entries:
+#    - 2022-06/making-virtual-a-reality.md
+#    - 2022-06/what-is-a-virtual-machine-anyway.md
+#    - 2022-06/script-or-virtual.md
+#    - 2022-06/that-use-case.md
+#    - 2022-06/we-need-another-wheel.md
+    - 2022-06/lovem-again.md
