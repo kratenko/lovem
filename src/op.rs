@@ -39,11 +39,13 @@ pub const FDIV: u8 = 0x36;
 pub const FCONST_0: u8 = 0x37;
 pub const FCONST_1: u8 = 0x38;
 
+pub const FPUSH: u8 = 0x39;
+pub const FPOP: u8 = 0x3a;
+
+
 /*
-PUSH_U8
-PUSH_U16
-PUSH_U32
-PUSH_I64
-INV
-push_i 17
+u8
+i8
+u16be
+
  */
