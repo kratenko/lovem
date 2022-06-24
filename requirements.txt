@@ -1,0 +1,11 @@
+#mkdocs==1.2.4
+mkdocs-material==8.*
+mkdocs-minify-plugin
+
+#markdown>=3.2
+#mkdocs-material-extensions>=1.0.3
+#pygments>=2.12
+#pymdown-extensions>=9.4
+#pymdown-extensions>=7.0,<8.0
+#pygments==2.6.1
+#markdown-include>=0.5.1,<0.6.0
