@@ -5,6 +5,7 @@ site_author: kratenko
 theme:
   name: material
   language: en
+  custom_dir: overrides
   features:
     - navigation.indexes
     # - navigation.instant
@@ -14,6 +15,9 @@ theme:
     # - navigation.tabs.sticky
     - navigation.top
     - navigation.tracking
+
+extra_css:
+  - stylesheets/custom.css
 
 plugins:
   - search

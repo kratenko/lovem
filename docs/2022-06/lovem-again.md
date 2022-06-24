@@ -1,11 +1,11 @@
-# Lovem Again!
-
-__It seems like that dude dug out one of his time-wasting projects and put some 
-more work into it. This time in a public repo even. And for some reason he wants 
-to let the world know, how and what he is doing. The journey starts here.__
-
-:octicons-book-24: Entry \#1 ·
-:octicons-calendar-24: 2022-06-24
+---
+title: Lovem again!
+author: kratenko
+author_gh_user: kratenko
+dread_time: 5 min
+entry: 1
+publish_date: 2022-06-24
+starter: It seems like that dude dug out one of his time-wasting projects and put some more work into it. This time in a public repo even. And for some reason he wants to let the world know, how and what he is doing. The journey starts here.
 ---
 
 So, I am back at writing my *Low Overhead Virtual Embedded Machine*. From scratch. 
