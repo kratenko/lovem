@@ -10,6 +10,7 @@ use crate::{op, Pgm};
 pub enum AsmError {
     InvalidLine,
     LineTooLong,
+    ProgramTooLong,
     InvalidLabel,
     DuplicateLabel(usize),
     UnknownLabel(String),
@@ -20,8 +21,14 @@ pub enum AsmError {
     BranchTooLong,
     TooManyExternalSymbols,
     UndefinedGlobal(String),
+    /// Tried to update a label operation's parm with wrong parm length.
+    ///
+    /// If this error occurs, there is an error in the Assembler.
+    InvalidLabelParm,
 }
 
+/// A single operation that was parsed from an assembly program.
+///
 #[derive(Debug)]
 pub struct Operation {
     opcode: u8,
@@ -32,11 +39,52 @@ pub struct Operation {
 }
 
 impl Operation {
+    /// Returns the size of the operation including its parameters.
+    ///
+    /// Gives the number of bytes this operation will use inside bytecode. Needed to calculate
+    /// branching distances.
     pub fn size(&self) -> usize {
         1 + self.parm.len()
     }
+
+    /// Updates relative position to label in parm.
+    ///
+    /// When an operation is parsed, that has a label as parameter used for a relative branch,
+    /// the parameter's bytes are left blank, because the relative position the distance towards
+    /// the destination might not be known, yet.
+    /// This function must only be called on operations with a label, and it must have
+    /// two bytes used for its parm.
+    fn update_label_parm(&mut self, dest: usize) -> Result<(), AsmError> {
+        if self.parm.len() != 2 {
+            // This is a program error in the Assembler.
+            // It used to panic! in this situation, but I prefer error reporting.
+            return Err(AsmError::InvalidLabelParm);
+        }
+        let offset = dest as isize - (self.pos + self.size()) as isize;
+        let offset = i16::try_from(offset).or(Err(AsmError::BranchTooLong))?;
+        let bb = offset.to_be_bytes();
+        self.parm[0] = bb[0];
+        self.parm[1] = bb[1];
+        Ok(())
+    }
+
+    /// Updates parameter bytes for operations with relative branch to a label.
+    ///
+    /// Function will be called on each operation, after the parsing of an assembly program has
+    /// completed, and the position of all labels inside the bytecode is known.
+    /// `map` contains absolute postions in byte code of the program's labels by name.
+    fn update_label_parm_if_needed(&mut self, map: &HashMap<String, usize>) -> Result<(), AsmError> {
+        if let Some(label) = &self.label {
+            let dest = map.get(label).ok_or(AsmError::UnknownLabel(String::from(label)))?;
+            self.update_label_parm(*dest)
+        } else {
+            // Operation does not have a label, so there is nothing to be done. This is fine.
+            Ok(())
+        }
+    }
 }
 
+/// Holds the program during assembling.
 #[derive(Debug)]
 pub struct AsmPgm {
     pub labels: HashMap<String, usize>,
@@ -176,6 +224,7 @@ impl AsmPgm {
                 self.push_op_1_parm(op::PUSH_U8, v)
             }
             "and" => self.parse_op_no_parm(op::AND, parm),
+            "add" => self.parse_op_no_parm(op::ADD, parm),
             "sub" => self.parse_op_no_parm(op::SUB, parm),
             "fin" => self.parse_op_no_parm(op::FIN, parm),
             "dup" => self.parse_op_no_parm(op::DUP, parm),
@@ -297,48 +346,41 @@ impl AsmPgm {
         for (n, line) in lines {
             p.line_number = n + 1;
             let line = AsmPgm::clean_line(line.unwrap());
-            match p.parse_line(line) {
-                Ok(_) => {}
-                Err(e) => {
-                    p.error = Some(e);
-                    break;
-                }
+            if let Err(e) = p.parse_line(line) {
+                // Store error in program and abort parsing:
+                p.error = Some(e);
+                break;
             }
         }
         // fix branch offsets
-        for o in &mut p.operations {
-            if let Some(label_name) = &o.label {
-                if let Some(label_pos) = p.labels.get(label_name) {
-                    let offset = *label_pos as isize - (o.pos + o.size()) as isize;
-                    if let Ok(offset) = i16::try_from(offset) {
-                        assert_eq!(o.parm.len(), 2);
-                        let bb = offset.to_be_bytes();
-                        o.parm[0] = bb[0];
-                        o.parm[1] = bb[1];
-                    } else {
-                        p.error = Some(AsmError::BranchTooLong);
-                        p.line_number = o.line_number;
-                        break;
-                    }
-                } else {
-                    p.error = Some(AsmError::UnknownLabel(String::from(label_name)));
+        if p.error.is_none() {
+            for o in &mut p.operations {
+                if let Err(e) = o.update_label_parm_if_needed(&p.labels) {
+                    // Safe error in program and update line number to that of the operation
+                    // where the error occurred:
+                    p.error = Some(e);
                     p.line_number = o.line_number;
+                    // Abort parsing on first error:
                     break;
                 }
             }
         }
+        // The parsed assembly program (might have run into error during parsing)
         p
     }
 
     pub fn compile(&self) -> Result<Pgm, AsmError> {
-        let mut code: Vec<u8> = vec![];
-        for o in &self.operations {
-            code.push(o.opcode);
-            code.extend(&o.parm);
-        }
         if let Some(e) = &self.error {
+            // Cannot compile program with error:
             return Err(e.clone());
         }
+        // concat bytes of all instructions to single chunk of bytecode
+        let mut text: Vec<u8> = vec![];
+        for o in &self.operations {
+            text.push(o.opcode);
+            text.extend(&o.parm);
+        }
+        // extract byte code positions of all labels that should be exported:
         let mut labels = HashMap::new();
         for n in &self.globals {
             let pos = self.labels.get(n).ok_or(AsmError::UndefinedGlobal(String::from(n)))?;
@@ -346,7 +388,7 @@ impl AsmPgm {
         }
         Ok(Pgm{
             ext: self.exts.clone(),
-            text: code,
+            text,
             labels,
         })
     }
