@@ -5,7 +5,7 @@ use crate::{op, Pgm};
 
 const STACK_SIZE: usize = 1000;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeError {
     EndOfProgram,
     InvalidOperation(u8),
@@ -78,6 +78,7 @@ impl VM {
         vm
     }
 
+    /// Tries and pops a value from value stack, respecting frame base.
     fn pop(&mut self) -> Result<i64, RuntimeError> {
         if self.stack.len() > self.fb {
             Ok(self.stack.pop().unwrap())
@@ -86,6 +87,7 @@ impl VM {
         }
     }
 
+    /// Tries and pushes a value to value stack, respecting stack size.
     fn push(&mut self, v: i64) -> Result<(), RuntimeError> {
         if self.stack.len() < self.stack.capacity() {
             self.stack.push(v);
@@ -95,15 +97,18 @@ impl VM {
         }
     }
 
+    /// Pops a value from value stack and returns it as a float64.
     fn pop_f64(&mut self) -> Result<f64, RuntimeError> {
         let i = self.pop()?;
         Ok(f64::from_be_bytes(i.to_be_bytes()))
     }
 
+    /// Push a float64, converted to a value, to value stack.
     fn push_f64(&mut self, v: f64) -> Result<(), RuntimeError> {
         self.push(i64::from_be_bytes(v.to_be_bytes()))
     }
 
+    /// Load a single byte from program text as u8.
     fn load_u8(&mut self, pgm: &Pgm) -> Result<u8, RuntimeError> {
         if let Some(v) = pgm.text.get(self.pc) {
             self.pc += 1;
@@ -176,7 +181,7 @@ impl VM {
 
     pub fn run(&mut self, pgm: &Pgm, label: &str) -> Result<(), RuntimeError> {
         self.stack.clear();
-        for i in 0..pgm.vars {
+        for _ in 0..pgm.vars {
             self.stack.push(0);
             self.fb += 1
         }
@@ -440,4 +445,179 @@ impl VM {
         Ok(())
     }
 
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::{Pgm, VM};
+    use crate::vm::RuntimeError;
+
+    fn vm_with_stack(stack: Vec<i64>) -> VM {
+        VM{
+            stack,
+            fb: 0,
+            pc: 0,
+            op_cnt: 0,
+            fstack: vec![],
+            funs: Default::default()
+        }
+    }
+
+    fn pgm_with_text(text: Vec<u8>) -> Pgm {
+        Pgm{
+            ext: vec![],
+            text,
+            labels: Default::default(),
+            vars: 0
+        }
+    }
+
+    #[test]
+    fn pop_stack_empty() {
+        let mut vm = vm_with_stack(vec![]);
+        assert_eq!(vm.stack.len(), 0);
+        assert_eq!(vm.pop(), Err(RuntimeError::StackUnderflow));
+        assert_eq!(vm.stack.len(), 0);
+    }
+
+    #[test]
+    fn pop_stack_full() {
+        let mut vm = vm_with_stack(vec![1, 2, -1, 0xffffffffff, -99999999999999999, 0, 123456]);
+        assert_eq!(vm.stack.len(), 7);
+        assert_eq!(vm.pop(), Ok(123456));
+        assert_eq!(vm.stack.len(), 6);
+        assert_eq!(vm.pop(), Ok(0));
+        assert_eq!(vm.stack.len(), 5);
+        assert_eq!(vm.pop(), Ok(-99999999999999999));
+        assert_eq!(vm.stack.len(), 4);
+        assert_eq!(vm.pop(), Ok(0xffffffffff));
+        assert_eq!(vm.stack.len(), 3);
+        assert_eq!(vm.pop(), Ok(-1));
+        assert_eq!(vm.stack.len(), 2);
+        assert_eq!(vm.pop(), Ok(2));
+        assert_eq!(vm.stack.len(), 1);
+        assert_eq!(vm.pop(), Ok(1));
+        assert_eq!(vm.stack.len(), 0);
+        assert_eq!(vm.pop(), Err(RuntimeError::StackUnderflow));
+        assert_eq!(vm.stack.len(), 0);
+        assert_eq!(vm.pop(), Err(RuntimeError::StackUnderflow));
+        assert_eq!(vm.stack.len(), 0);
+    }
+
+    #[test]
+    fn pop_stack_fb() {
+        let mut vm = vm_with_stack(vec![1, 2, 3]);
+        vm.fb = 2;
+        assert_eq!(vm.pop(), Ok(3));
+        assert_eq!(vm.stack.len(), 2);
+        assert_eq!(vm.pop(), Err(RuntimeError::StackUnderflow));
+        assert_eq!(vm.stack.len(), 2);
+        assert_eq!(vm.pop(), Err(RuntimeError::StackUnderflow));
+        assert_eq!(vm.stack.len(), 2);
+    }
+
+    #[test]
+    fn pop_stack_f64_empty() {
+        let mut vm = vm_with_stack(vec![]);
+        assert_eq!(vm.pop_f64(), Err(RuntimeError::StackUnderflow));
+        assert_eq!(vm.stack.len(), 0);
+    }
+
+    #[test]
+    fn pop_stack_f64_full() -> Result<(), RuntimeError> {
+        // make sure all kinda edge cases get through:
+        let mut vm = vm_with_stack(vec![
+                        i64::from_be_bytes((-1f64).to_be_bytes()),
+                        i64::from_be_bytes(0f64.to_be_bytes()),
+                        i64::from_be_bytes(f64::NAN.to_be_bytes()),
+                        i64::from_be_bytes(f64::NEG_INFINITY.to_be_bytes()),
+                        i64::from_be_bytes(f64::INFINITY.to_be_bytes()),
+                        i64::from_be_bytes(f64::MIN.to_be_bytes()),
+                        i64::from_be_bytes(f64::MIN_POSITIVE.to_be_bytes()),
+                        i64::from_be_bytes(f64::MAX.to_be_bytes()),
+                        i64::from_be_bytes(1337f64.to_be_bytes()),
+        ]);
+        assert_eq!(vm.pop_f64(), Ok(1337f64));
+        assert_eq!(vm.pop_f64(), Ok(f64::MAX));
+        assert_eq!(vm.pop_f64(), Ok(f64::MIN_POSITIVE));
+        assert_eq!(vm.pop_f64(), Ok(f64::MIN));
+        assert_eq!(vm.pop_f64(), Ok(f64::INFINITY));
+        assert_eq!(vm.pop_f64(), Ok(f64::NEG_INFINITY));
+        // cannot compare Ok(NaN) to Ok(NaN) directly...
+        assert!(vm.pop_f64()?.is_nan());
+        assert_eq!(vm.pop_f64(), Ok(0f64));
+        assert_eq!(vm.pop_f64(), Ok(-1f64));
+        assert_eq!(vm.pop_f64(), Err(RuntimeError::StackUnderflow));
+        Ok(())
+    }
+
+    #[test]
+    fn pop_stack_f64_fb() {
+        let mut vm = vm_with_stack(vec![1, 2, 3, 4,
+                                        i64::from_be_bytes(13.5f64.to_be_bytes())]);
+        vm.fb = 4;
+        assert_eq!(vm.pop_f64(), Ok(13.5));
+        assert_eq!(vm.stack.len(), 4);
+        assert_eq!(vm.pop_f64(), Err(RuntimeError::StackUnderflow));
+        assert_eq!(vm.stack.len(), 4);
+    }
+
+    #[test]
+    fn push_pop_stack() -> Result<(), RuntimeError> {
+        // not strickly a unit test, but might catch some nasty problems
+        let mut vm = vm_with_stack(Vec::with_capacity(10));
+        vm.push(1)?;
+        vm.push(-1)?;
+        vm.push_f64(123.456f64)?;
+        vm.push(0)?;
+        assert_eq!(vm.pop(), Ok(0));
+        assert_eq!(vm.pop_f64(), Ok(123.456));
+        assert_eq!(vm.pop(), Ok(-1));
+        assert_eq!(vm.pop(), Ok(1));
+        assert_eq!(vm.pop_f64(), Err(RuntimeError::StackUnderflow));
+        Ok(())
+    }
+
+    #[test]
+    fn cross_push_pop_stack() -> Result<(), RuntimeError> {
+        let mut vm = vm_with_stack(Vec::with_capacity(10));
+        vm.push(100)?;
+        vm.push_f64(0.123f64)?;
+        vm.push(200)?;
+        assert_eq!(vm.pop(), Ok(200));
+        vm.pop()?;
+        assert_eq!(vm.pop(), Ok(100));
+        Ok(())
+    }
+
+    #[test]
+    fn load_u8_empty_program() {
+        let mut vm = vm_with_stack(vec![]);
+        let pgm = pgm_with_text(vec![]);
+        assert_eq!(vm.pc, 0);
+        assert_eq!(vm.load_u8(&pgm), Err(RuntimeError::EndOfProgram));
+        assert_eq!(vm.pc, 0);
+        assert_eq!(vm.load_u8(&pgm), Err(RuntimeError::EndOfProgram));
+        assert_eq!(vm.pc, 0);
+    }
+
+    #[test]
+    fn load_u8_whole_program() {
+        let mut vm = vm_with_stack(vec![]);
+        let pgm = pgm_with_text(vec![0xf3, 0x00, 0x01, 0x02]);
+        assert_eq!(vm.pc, 0);
+        assert_eq!(vm.load_u8(&pgm), Ok(0xf3));
+        assert_eq!(vm.pc, 1);
+        assert_eq!(vm.load_u8(&pgm), Ok(0x00));
+        assert_eq!(vm.pc, 2);
+        assert_eq!(vm.load_u8(&pgm), Ok(0x01));
+        assert_eq!(vm.pc, 3);
+        assert_eq!(vm.load_u8(&pgm), Ok(0x02));
+        assert_eq!(vm.pc, 4);
+        assert_eq!(vm.load_u8(&pgm), Err(RuntimeError::EndOfProgram));
+        assert_eq!(vm.pc, 4);
+        assert_eq!(vm.load_u8(&pgm), Err(RuntimeError::EndOfProgram));
+        assert_eq!(vm.pc, 4);
+    }
 }

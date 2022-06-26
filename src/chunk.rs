@@ -10,7 +10,7 @@ impl Chunk {
             pos: 0,
         }
     }
-
+/*
     pub fn split_pos(pos: usize) -> (usize, usize) {
         (pos >> 3, pos & 0b111)
     }
@@ -35,6 +35,7 @@ impl Chunk {
     pub fn write_bits(&mut self, v: i64, n: u8) {
 
     }
+    */
 }
 
 #[cfg(test)]
@@ -52,6 +53,7 @@ mod tests {
         }
     }
 
+    /*
     #[test]
     fn write_bit() {
         let mut ch = Chunk::new(10);
@@ -65,4 +67,5 @@ mod tests {
         ch.write_bit_at(0, false);
         assert_eq!(ch.data[0], 0b1000000);
     }
+    */
 }
