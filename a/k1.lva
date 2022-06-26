@@ -19,6 +19,8 @@ pop
 load_g a
 load_g b
 mul
+pop
+pop
 fin
 
 other:

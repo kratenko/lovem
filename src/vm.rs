@@ -23,8 +23,18 @@ pub struct Frame {
 }
 
 pub struct VM {
+    /// The main value stack
     stack: Vec<i64>,
+    /// Frame Base Register
+    ///
+    /// Pointer to the bottom of the stack for the current frame.
+    fb: usize,
+    /// Program Counter
+    ///
+    /// Pointer to the instruction inside program text that is to
+    /// be executed next.
     pc: usize,
+    /// Number of operations executed.
     op_cnt: usize,
     fstack: Vec<usize>,
     funs: HashMap<String, fn(&mut [i64]) -> Result<(), RuntimeError>>,
@@ -46,6 +56,7 @@ impl VM {
     pub fn new() -> VM {
         let mut vm = VM{
             stack: Vec::with_capacity(STACK_SIZE),
+            fb: 0,
             pc: 0,
             op_cnt: 0,
             fstack: vec![],
@@ -68,7 +79,11 @@ impl VM {
     }
 
     fn pop(&mut self) -> Result<i64, RuntimeError> {
-        self.stack.pop().ok_or(RuntimeError::StackUnderflow)
+        if self.stack.len() > self.fb {
+            Ok(self.stack.pop().unwrap())
+        } else {
+            Err(RuntimeError::StackUnderflow)
+        }
     }
 
     fn push(&mut self, v: i64) -> Result<(), RuntimeError> {
@@ -163,6 +178,7 @@ impl VM {
         self.stack.clear();
         for i in 0..pgm.vars {
             self.stack.push(0);
+            self.fb += 1
         }
         self.op_cnt = 0;
 

@@ -61,3 +61,22 @@ optoken:
 : It is a named identifier for easier programming, indication jump destinations 
 : or variables' names. They will be replaced in bytecode by numeric addresses 
 : or identifiers.
+
+immediate:
+: (or "immediate value") a value (literate) that is used for an operation
+: taken from the oparg, so from the bytecode. They are used for loading 
+: data from the program to the stack.
+
+branch|branching
+: A branch is an instruction that can change which instruction follows
+: its execution, determining on a runtime condition. It does so by 
+: modifying the PC, if the condition is true. By this it can change which 
+: instruction will be next. The act of changing the PC is called
+: "branching". The destination is typically taken from the instructions
+: oparg. A branch is different from a normal jump, which will always
+: be performed. Hence, a branch is a conditional jump. 
+: The most prominent branching operation is the classical if-statement.
+
+program counter|PC
+: Special register inside the VM, that holds the address of the instruction 
+: that is to be executed next.
