@@ -15,6 +15,7 @@ pub enum RuntimeError {
     DivisionByZero,
     CallError,
     UnknownFunction(String),
+    InvalidGlobalVariable,
 }
 
 pub struct Frame {
@@ -160,6 +161,9 @@ impl VM {
 
     pub fn run(&mut self, pgm: &Pgm, label: &str) -> Result<(), RuntimeError> {
         self.stack.clear();
+        for i in 0..pgm.vars {
+            self.stack.push(0);
+        }
         self.op_cnt = 0;
 
         self.pc = if label == "" {
@@ -352,6 +356,22 @@ impl VM {
             op::RET => {
                 let d = self.fstack.pop().ok_or(RuntimeError::StackUnderflow)?;
                 self.pc = d;
+            }
+            op::STORE_G => {
+                let vn = self.load_u8(pgm)?;
+                if vn >= pgm.vars {
+                    return Err(RuntimeError::InvalidGlobalVariable);
+                }
+                let v = self.pop()?;
+                self.stack[vn as usize] = v;
+            }
+            op::LOAD_G => {
+                let vn = self.load_u8(pgm)?;
+                if vn >= pgm.vars {
+                    return Err(RuntimeError::InvalidGlobalVariable);
+                }
+                let v = self.stack[vn as usize];
+                self.push(v)?;
             }
             op::ECALL => {
                 let n = self.load_u16(pgm)?;

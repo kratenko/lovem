@@ -55,3 +55,9 @@ instruction
 ALU (not sure about that term, yet)
 : Arithmetic logic unit, the entity that executes operations.
 : In our case of a VM, it is, of course, virtual itself and just a bunch of code.
+
+optoken:
+: (assembly) Argument in an assembler program instruction as a string identifier.
+: It is a named identifier for easier programming, indication jump destinations 
+: or variables' names. They will be replaced in bytecode by numeric addresses 
+: or identifiers.

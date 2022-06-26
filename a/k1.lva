@@ -2,6 +2,11 @@ global main
 global other
 
 main:
+push_i 15
+store_g a
+push_i 3
+store_g b
+
 push_f32 100
 push_i 1
 ecall sayf
@@ -10,6 +15,10 @@ ecall sin
 push_i 1
 ecall sayf
 pop
+
+load_g a
+load_g b
+mul
 fin
 
 other:

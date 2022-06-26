@@ -18,7 +18,7 @@ pub fn main() {
     println!("sz: {}", &pgm.text.len());
 
     let mut vm = VM::new();
-    if let Err(e) = vm.run(&pgm, "other") {
+    if let Err(e) = vm.run(&pgm, "") {
         println!("Runtime Error: {:?}", e);
     } else {
         println!("Terminated:\n{:?}.", vm);

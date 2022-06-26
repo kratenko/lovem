@@ -20,6 +20,7 @@ pub enum AsmError {
     InvalidArgument,
     BranchTooLong,
     TooManyExternalSymbols,
+    TooManyVariables,
     UndefinedGlobal(String),
     /// Tried to update a label operation's parm with wrong parm length.
     ///
@@ -31,12 +32,27 @@ pub enum AsmError {
 ///
 #[derive(Debug)]
 pub struct Instruction {
-    opcode: u8,
+    /// Line number the instruction was read.
+    ///
+    /// The number of the line the instruction was taken from, most likely
+    /// from a source file. Line counting starts with 1.
     line_number: usize,
+    /// Opcode defining which operation is to be executed.
+    opcode: u8,
+    /// Arguments used for execution of the operation.
+    ///
+    /// Zero or more bytes, currently up to 8.
+    oparg: Vec<u8>,
+    /// String representation of the oparg from assembly source.
+    ///
+    /// Name of jump destination, variable, external function, etc.
+    optoken: Option<String>,
+    /// Position inside bytecode (starting at 0).
+    ///
+    /// Number of bytes that come before this instruction in the program.
     pos: usize,
-    parm: Vec<u8>,
-    label: Option<String>,
 }
+
 
 impl Instruction {
     /// Returns the size of the instruction including its parameters.
@@ -44,7 +60,7 @@ impl Instruction {
     /// Gives the number of bytes this instruction will use inside bytecode. Needed to calculate
     /// branching distances.
     pub fn size(&self) -> usize {
-        1 + self.parm.len()
+        1 + self.oparg.len()
     }
 
     /// Updates relative position to label in parm.
@@ -55,7 +71,7 @@ impl Instruction {
     /// This function must only be called on instructions with a label, and it must have
     /// two bytes used for its parm.
     fn update_label_parm(&mut self, dest: usize) -> Result<(), AsmError> {
-        if self.parm.len() != 2 {
+        if self.oparg.len() != 2 {
             // This is a program error in the Assembler.
             // It used to panic! in this situation, but I prefer error reporting.
             return Err(AsmError::InvalidLabelParm);
@@ -63,8 +79,8 @@ impl Instruction {
         let offset = dest as isize - (self.pos + self.size()) as isize;
         let offset = i16::try_from(offset).or(Err(AsmError::BranchTooLong))?;
         let bb = offset.to_be_bytes();
-        self.parm[0] = bb[0];
-        self.parm[1] = bb[1];
+        self.oparg[0] = bb[0];
+        self.oparg[1] = bb[1];
         Ok(())
     }
 
@@ -74,7 +90,7 @@ impl Instruction {
     /// completed, and the position of all labels inside the bytecode is known.
     /// `map` contains absolute postions in byte code of the program's labels by name.
     fn update_label_parm_if_needed(&mut self, map: &HashMap<String, usize>) -> Result<(), AsmError> {
-        if let Some(label) = &self.label {
+        if let Some(label) = &self.optoken {
             let dest = map.get(label).ok_or(AsmError::UnknownLabel(String::from(label)))?;
             self.update_label_parm(*dest)
         } else {
@@ -94,7 +110,7 @@ pub struct AsmPgm {
     pub line_number: usize,
     pub text_pos: usize,
     pub error: Option<AsmError>,
-    pub vars: HashSet<String>,
+    pub vars: Vec<String>,
 }
 
 lazy_static! {
@@ -129,25 +145,25 @@ impl AsmPgm {
     }
 
     fn push_op_1_parm(&mut self, opcode: u8, p0: u8) -> Result<(), AsmError> {
-        let o = Instruction { opcode, line_number: self.line_number, pos: self.text_pos, parm: vec![p0], label: None };
+        let o = Instruction { opcode, line_number: self.line_number, pos: self.text_pos, oparg: vec![p0], optoken: None };
         self.push_op(o);
         Ok(())
     }
 
     fn push_op_2_parms(&mut self, opcode: u8, p0: u8, p1: u8) -> Result<(), AsmError> {
-        let o = Instruction { opcode, line_number: self.line_number, pos: self.text_pos, parm: vec![p0, p1], label: None };
+        let o = Instruction { opcode, line_number: self.line_number, pos: self.text_pos, oparg: vec![p0, p1], optoken: None };
         self.push_op(o);
         Ok(())
     }
 
     fn push_op_4_parms(&mut self, opcode: u8, p0: u8, p1: u8, p2: u8, p3: u8) -> Result<(), AsmError> {
-        let o = Instruction { opcode, line_number: self.line_number, pos: self.text_pos, parm: vec![p0, p1, p2, p3], label: None };
+        let o = Instruction { opcode, line_number: self.line_number, pos: self.text_pos, oparg: vec![p0, p1, p2, p3], optoken: None };
         self.push_op(o);
         Ok(())
     }
 
     fn push_op_no_parm(&mut self, opcode: u8) -> Result<(), AsmError> {
-        let o = Instruction { opcode, line_number: self.line_number, pos: self.text_pos, parm: vec![], label: None };
+        let o = Instruction { opcode, line_number: self.line_number, pos: self.text_pos, oparg: vec![], optoken: None };
         self.push_op(o);
         Ok(())
     }
@@ -160,10 +176,10 @@ impl AsmPgm {
         }
     }
 
-    fn parse_op_1_parm(&mut self, opcode: u8) -> Result<(), AsmError> {
+    fn parse_op_1_parm(&mut self, opcode: u8, parm: Option<&str>) -> Result<(), AsmError> {
         let parm = parm.ok_or(AsmError::MissingArgument)?;
         let v = parse_int::parse::<u8>(parm).or(Err(AsmError::InvalidArgument))?;
-        self.push_op_1_parm(op::opcode, v)
+        self.push_op_1_parm(opcode, v)
     }
 
     fn parse_op_label(&mut self, opcode: u8, parm: Option<&str>) -> Result<(), AsmError> {
@@ -173,8 +189,8 @@ impl AsmPgm {
                     opcode,
                     line_number: self.line_number,
                     pos: self.text_pos,
-                    parm: vec![0, 0],
-                    label: Some(String::from(label_name)),
+                    oparg: vec![0, 0],
+                    optoken: Some(String::from(label_name)),
                 };
                 self.push_op(o);
                 Ok(())
@@ -185,6 +201,7 @@ impl AsmPgm {
             Err(AsmError::MissingArgument)
         }
     }
+
     fn parse_op_ext(&mut self, opcode: u8, parm: Option<&str>) -> Result<(), AsmError> {
         let parm = parm.ok_or(AsmError::MissingArgument)?;
         if !EXT_NAME_RE.is_match(parm) {
@@ -205,8 +222,35 @@ impl AsmPgm {
             opcode,
             line_number: self.line_number,
             pos: self.text_pos,
-            parm: index.to_be_bytes().to_vec(),
-            label: None,
+            oparg: index.to_be_bytes().to_vec(),
+            optoken: None,
+        };
+        self.push_op(o);
+        Ok(())
+    }
+
+    fn parse_op_var(&mut self, opcode: u8, parm: Option<&str>) -> Result<(), AsmError> {
+        let parm = parm.ok_or(AsmError::MissingArgument)?;
+        if !EXT_NAME_RE.is_match(parm) {
+            return Err(AsmError::InvalidArgument);
+        }
+
+        let index = if let Some(index) = self.vars.iter().position(|r| r == parm) {
+            index
+        } else {
+            self.vars.push(String::from(parm));
+            self.vars.len() - 1
+        };
+        if index > 0xff {
+            return Err(AsmError::TooManyVariables);
+        }
+        let var_num = index as u8;
+        let o = Instruction {
+            opcode,
+            line_number: self.line_number,
+            pos: self.text_pos,
+            oparg: vec![var_num],
+            optoken: None,
         };
         self.push_op(o);
         Ok(())
@@ -249,7 +293,7 @@ impl AsmPgm {
                 let parm = parm.ok_or(AsmError::MissingArgument)?;
                 let v = parm.parse::<f32>().or(Err(AsmError::InvalidArgument))?;
                 let b = v.to_be_bytes();
-                let o = Instruction { opcode: op::PUSH_F32, line_number: self.line_number, pos: self.text_pos, parm: b.to_vec(), label: None };
+                let o = Instruction { opcode: op::PUSH_F32, line_number: self.line_number, pos: self.text_pos, oparg: b.to_vec(), optoken: None };
                 self.push_op(o);
                 Ok(())
             }
@@ -257,7 +301,7 @@ impl AsmPgm {
                 let parm = parm.ok_or(AsmError::MissingArgument)?;
                 let v = parm.parse::<f64>().or(Err(AsmError::InvalidArgument))?;
                 let b = v.to_be_bytes();
-                let o = Instruction { opcode: op::PUSH_F64, line_number: self.line_number, pos: self.text_pos, parm: b.to_vec(), label: None };
+                let o = Instruction { opcode: op::PUSH_F64, line_number: self.line_number, pos: self.text_pos, oparg: b.to_vec(), optoken: None };
                 self.push_op(o);
                 Ok(())
             }
@@ -276,8 +320,8 @@ impl AsmPgm {
             "ecall" => {
                 self.parse_op_ext(op::ECALL, parm)
             },
-            "load_g" => self.parse_op_1_parm(op::LOAD_G),
-            "store_g" => self.parse_op_1_parm(op::STORE_G),
+            "load_g" => self.parse_op_var(op::LOAD_G, parm),
+            "store_g" => self.parse_op_var(op::STORE_G, parm),
             "push_i" => {
                 // macro
                 let parm = parm.ok_or(AsmError::MissingArgument)?;
@@ -310,7 +354,7 @@ impl AsmPgm {
                     }
                     _ => {
                         let b = v.to_be_bytes();
-                        let o = Instruction { opcode: op::PUSH_I64, line_number: self.line_number, pos: self.text_pos, parm: b.to_vec(), label: None };
+                        let o = Instruction { opcode: op::PUSH_I64, line_number: self.line_number, pos: self.text_pos, oparg: b.to_vec(), optoken: None };
                         self.push_op(o);
                         Ok(())
                     }
@@ -349,6 +393,7 @@ impl AsmPgm {
             line_number: 0,
             text_pos: 0,
             error: None,
+            vars: Default::default(),
         };
         let lines = io::BufReader::new(file).lines().enumerate();
         for (n, line) in lines {
@@ -386,7 +431,7 @@ impl AsmPgm {
         let mut text: Vec<u8> = vec![];
         for o in &self.instructions {
             text.push(o.opcode);
-            text.extend(&o.parm);
+            text.extend(&o.oparg);
         }
         // extract byte code positions of all labels that should be exported:
         let mut labels = HashMap::new();
@@ -398,6 +443,7 @@ impl AsmPgm {
             ext: self.exts.clone(),
             text,
             labels,
+            vars: self.vars.len() as u8,
         })
     }
 }
