@@ -1,3 +1,16 @@
+// TODO: this should be somewhat generated. I am thinking Macros, but will need to learn them.
+/*
+ * Brainstorming:
+ * Information I need to store for an operation
+ *  - opcode
+ *  - mnemonic
+ *  - asm argument type
+ *  - oparg length (argument size in bytes)
+ *  - number of values popped
+ *  - number of values pushed
+ * In order to reduce complexity, these things should be constants for each operation,
+ * so the number of bytes in parm should be the same for each instance of the operation.
+ */
 pub const NOP: u8 = 0x00;
 pub const CONST_0: u8 = 0x01;
 pub const CONST_1: u8 = 0x02;
@@ -41,6 +54,9 @@ pub const FCONST_1: u8 = 0x38;
 
 pub const FPUSH: u8 = 0x39;
 pub const FPOP: u8 = 0x3a;
+
+pub const LOAD_G: u8 = 0x3b;
+pub const STORE_G: u8 = 0x3c;
 
 
 /*

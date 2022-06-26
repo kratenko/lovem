@@ -5,4 +5,5 @@ pub struct Pgm {
     pub ext: Vec<String>,
     pub text: Vec<u8>,
     pub labels: HashMap<String, usize>,
+    pub vars: u8,
 }

@@ -27,10 +27,10 @@ pub enum AsmError {
     InvalidLabelParm,
 }
 
-/// A single operation that was parsed from an assembly program.
+/// A single instruction that was parsed from an assembly program.
 ///
 #[derive(Debug)]
-pub struct Operation {
+pub struct Instruction {
     opcode: u8,
     line_number: usize,
     pos: usize,
@@ -38,10 +38,10 @@ pub struct Operation {
     label: Option<String>,
 }
 
-impl Operation {
-    /// Returns the size of the operation including its parameters.
+impl Instruction {
+    /// Returns the size of the instruction including its parameters.
     ///
-    /// Gives the number of bytes this operation will use inside bytecode. Needed to calculate
+    /// Gives the number of bytes this instruction will use inside bytecode. Needed to calculate
     /// branching distances.
     pub fn size(&self) -> usize {
         1 + self.parm.len()
@@ -49,10 +49,10 @@ impl Operation {
 
     /// Updates relative position to label in parm.
     ///
-    /// When an operation is parsed, that has a label as parameter used for a relative branch,
-    /// the parameter's bytes are left blank, because the relative position the distance towards
+    /// When an instruction is parsed, that has a label as parameter used for a relative branch,
+    /// the parameter's bytes are left blank, because the distance towards
     /// the destination might not be known, yet.
-    /// This function must only be called on operations with a label, and it must have
+    /// This function must only be called on instructions with a label, and it must have
     /// two bytes used for its parm.
     fn update_label_parm(&mut self, dest: usize) -> Result<(), AsmError> {
         if self.parm.len() != 2 {
@@ -68,9 +68,9 @@ impl Operation {
         Ok(())
     }
 
-    /// Updates parameter bytes for operations with relative branch to a label.
+    /// Updates parameter bytes for instructions with relative branch to a label.
     ///
-    /// Function will be called on each operation, after the parsing of an assembly program has
+    /// Function will be called on each instruction, after the parsing of an assembly program has
     /// completed, and the position of all labels inside the bytecode is known.
     /// `map` contains absolute postions in byte code of the program's labels by name.
     fn update_label_parm_if_needed(&mut self, map: &HashMap<String, usize>) -> Result<(), AsmError> {
@@ -78,7 +78,7 @@ impl Operation {
             let dest = map.get(label).ok_or(AsmError::UnknownLabel(String::from(label)))?;
             self.update_label_parm(*dest)
         } else {
-            // Operation does not have a label, so there is nothing to be done. This is fine.
+            // Instruction does not have a label, so there is nothing to be done. This is fine.
             Ok(())
         }
     }
@@ -90,10 +90,11 @@ pub struct AsmPgm {
     pub labels: HashMap<String, usize>,
     pub globals: HashSet<String>,
     pub exts: Vec<String>,
-    pub operations: Vec<Operation>,
+    pub instructions: Vec<Instruction>,
     pub line_number: usize,
     pub text_pos: usize,
     pub error: Option<AsmError>,
+    pub vars: HashSet<String>,
 }
 
 lazy_static! {
@@ -128,25 +129,25 @@ impl AsmPgm {
     }
 
     fn push_op_1_parm(&mut self, opcode: u8, p0: u8) -> Result<(), AsmError> {
-        let o = Operation { opcode, line_number: self.line_number, pos: self.text_pos, parm: vec![p0], label: None };
+        let o = Instruction { opcode, line_number: self.line_number, pos: self.text_pos, parm: vec![p0], label: None };
         self.push_op(o);
         Ok(())
     }
 
     fn push_op_2_parms(&mut self, opcode: u8, p0: u8, p1: u8) -> Result<(), AsmError> {
-        let o = Operation { opcode, line_number: self.line_number, pos: self.text_pos, parm: vec![p0, p1], label: None };
+        let o = Instruction { opcode, line_number: self.line_number, pos: self.text_pos, parm: vec![p0, p1], label: None };
         self.push_op(o);
         Ok(())
     }
 
     fn push_op_4_parms(&mut self, opcode: u8, p0: u8, p1: u8, p2: u8, p3: u8) -> Result<(), AsmError> {
-        let o = Operation { opcode, line_number: self.line_number, pos: self.text_pos, parm: vec![p0, p1, p2, p3], label: None };
+        let o = Instruction { opcode, line_number: self.line_number, pos: self.text_pos, parm: vec![p0, p1, p2, p3], label: None };
         self.push_op(o);
         Ok(())
     }
 
     fn push_op_no_parm(&mut self, opcode: u8) -> Result<(), AsmError> {
-        let o = Operation { opcode, line_number: self.line_number, pos: self.text_pos, parm: vec![], label: None };
+        let o = Instruction { opcode, line_number: self.line_number, pos: self.text_pos, parm: vec![], label: None };
         self.push_op(o);
         Ok(())
     }
@@ -159,10 +160,16 @@ impl AsmPgm {
         }
     }
 
+    fn parse_op_1_parm(&mut self, opcode: u8) -> Result<(), AsmError> {
+        let parm = parm.ok_or(AsmError::MissingArgument)?;
+        let v = parse_int::parse::<u8>(parm).or(Err(AsmError::InvalidArgument))?;
+        self.push_op_1_parm(op::opcode, v)
+    }
+
     fn parse_op_label(&mut self, opcode: u8, parm: Option<&str>) -> Result<(), AsmError> {
         if let Some(label_name) = parm {
             if LABEL_NAME_RE.is_match(label_name) {
-                let o = Operation {
+                let o = Instruction {
                     opcode,
                     line_number: self.line_number,
                     pos: self.text_pos,
@@ -177,7 +184,6 @@ impl AsmPgm {
         } else {
             Err(AsmError::MissingArgument)
         }
-
     }
     fn parse_op_ext(&mut self, opcode: u8, parm: Option<&str>) -> Result<(), AsmError> {
         let parm = parm.ok_or(AsmError::MissingArgument)?;
@@ -195,7 +201,7 @@ impl AsmPgm {
             return Err(AsmError::TooManyExternalSymbols);
         }
         let index = index as u16;
-        let o = Operation {
+        let o = Instruction {
             opcode,
             line_number: self.line_number,
             pos: self.text_pos,
@@ -206,9 +212,9 @@ impl AsmPgm {
         Ok(())
     }
 
-    fn push_op(&mut self, o: Operation) {
+    fn push_op(&mut self, o: Instruction) {
         self.text_pos += o.size();
-        self.operations.push(o);
+        self.instructions.push(o);
     }
 
     fn parse_op(&mut self, opname: &str, parm: Option<&str>) -> Result<(), AsmError> {
@@ -243,7 +249,7 @@ impl AsmPgm {
                 let parm = parm.ok_or(AsmError::MissingArgument)?;
                 let v = parm.parse::<f32>().or(Err(AsmError::InvalidArgument))?;
                 let b = v.to_be_bytes();
-                let o = Operation { opcode: op::PUSH_F32, line_number: self.line_number, pos: self.text_pos, parm: b.to_vec(), label: None };
+                let o = Instruction { opcode: op::PUSH_F32, line_number: self.line_number, pos: self.text_pos, parm: b.to_vec(), label: None };
                 self.push_op(o);
                 Ok(())
             }
@@ -251,7 +257,7 @@ impl AsmPgm {
                 let parm = parm.ok_or(AsmError::MissingArgument)?;
                 let v = parm.parse::<f64>().or(Err(AsmError::InvalidArgument))?;
                 let b = v.to_be_bytes();
-                let o = Operation { opcode: op::PUSH_F64, line_number: self.line_number, pos: self.text_pos, parm: b.to_vec(), label: None };
+                let o = Instruction { opcode: op::PUSH_F64, line_number: self.line_number, pos: self.text_pos, parm: b.to_vec(), label: None };
                 self.push_op(o);
                 Ok(())
             }
@@ -270,6 +276,8 @@ impl AsmPgm {
             "ecall" => {
                 self.parse_op_ext(op::ECALL, parm)
             },
+            "load_g" => self.parse_op_1_parm(op::LOAD_G),
+            "store_g" => self.parse_op_1_parm(op::STORE_G),
             "push_i" => {
                 // macro
                 let parm = parm.ok_or(AsmError::MissingArgument)?;
@@ -302,7 +310,7 @@ impl AsmPgm {
                     }
                     _ => {
                         let b = v.to_be_bytes();
-                        let o = Operation { opcode: op::PUSH_I64, line_number: self.line_number, pos: self.text_pos, parm: b.to_vec(), label: None };
+                        let o = Instruction { opcode: op::PUSH_I64, line_number: self.line_number, pos: self.text_pos, parm: b.to_vec(), label: None };
                         self.push_op(o);
                         Ok(())
                     }
@@ -332,12 +340,12 @@ impl AsmPgm {
         Err(AsmError::InvalidLine)
     }
 
-    pub fn parse(file: File) -> AsmPgm {
+    fn parse(file: File) -> AsmPgm {
         let mut p = AsmPgm {
             labels: HashMap::new(),
             globals: HashSet::new(),
             exts: vec![],
-            operations: vec![],
+            instructions: vec![],
             line_number: 0,
             text_pos: 0,
             error: None,
@@ -354,7 +362,7 @@ impl AsmPgm {
         }
         // fix branch offsets
         if p.error.is_none() {
-            for o in &mut p.operations {
+            for o in &mut p.instructions {
                 if let Err(e) = o.update_label_parm_if_needed(&p.labels) {
                     // Safe error in program and update line number to that of the operation
                     // where the error occurred:
@@ -369,14 +377,14 @@ impl AsmPgm {
         p
     }
 
-    pub fn compile(&self) -> Result<Pgm, AsmError> {
+    fn compile(&self) -> Result<Pgm, AsmError> {
         if let Some(e) = &self.error {
             // Cannot compile program with error:
             return Err(e.clone());
         }
         // concat bytes of all instructions to single chunk of bytecode
         let mut text: Vec<u8> = vec![];
-        for o in &self.operations {
+        for o in &self.instructions {
             text.push(o.opcode);
             text.extend(&o.parm);
         }
@@ -386,10 +394,18 @@ impl AsmPgm {
             let pos = self.labels.get(n).ok_or(AsmError::UndefinedGlobal(String::from(n)))?;
             labels.insert(String::from(n), *pos);
         }
-        Ok(Pgm{
+        Ok(Pgm {
             ext: self.exts.clone(),
             text,
             labels,
         })
     }
+}
+
+pub fn assemble_file(file: File) -> Result<Pgm, (AsmError, usize)> {
+    let p = AsmPgm::parse(file);
+    if let Some(e) = p.error {
+        return Err((e, p.line_number))
+    };
+    p.compile().map_err(|e| (e, 0usize))
 }
