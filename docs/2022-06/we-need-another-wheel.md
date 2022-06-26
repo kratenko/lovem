@@ -1,11 +1,12 @@
-# We need another wheel
-
-__There are many wheels out there, why o why do you want to invent it again? Well, are 
-there, though? Because that is what I thought. I started looking at what I know. Soo...__
-
-:octicons-book-24: Entry \#2 ·
-:octicons-calendar-24: 2022-06-24
 ---
+title: We need another wheel
+author: kratenko
+author_gh_user: kratenko
+entry: 2
+publish_date: 2022-06-26
+starter: There are many wheels out there, why o why do you want to invent it again? Well, are there, though? Because that is what I thought. I started looking at what I know. Soo...
+---
+
 
 ## Lua
 [Lua][lua] is a tested scripting language to use in host languages like C. I first 
