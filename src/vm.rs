@@ -42,7 +42,7 @@ pub struct VM {
 
 impl fmt::Debug for VM {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "VM {{ pc: {}, op_cnt: {}, fstack: {:?}, stack: {:?} }}", self.pc, self.op_cnt, &self.fstack, &self.stack)
+        write!(f, "VM {{ pc: {}, op_cnt: {}, fstack: {:?}, fb: {}, stack: {:?} }}", self.pc, self.op_cnt, &self.fstack, &self.fb, &self.stack)
     }
 }
 
@@ -74,6 +74,14 @@ impl VM {
             let f = f64::from_be_bytes(i.to_be_bytes()).sin();
             v[0] = i64::from_be_bytes(f.to_be_bytes());
             Ok(())
+        });
+        vm.funs.insert(String::from("pi"), |v: &mut [i64]| -> Result<(), RuntimeError> {
+            if v.len() == 1 {
+                v[0] = i64::from_be_bytes(std::f64::consts::PI.to_be_bytes());
+                Ok(())
+            } else {
+                Err(RuntimeError::CallError)
+            }
         });
         vm
     }
@@ -395,7 +403,7 @@ impl VM {
                 self.push(v)?;
             }
             op::ECALL => {
-                let n = self.load_u16(pgm)?;
+                let n = self.load_u8(pgm)?;
                 let ename = pgm.ext.get(n as usize).ok_or(RuntimeError::CallError)?;
                 let fu = self.funs.get(ename).ok_or(RuntimeError::CallError)?.clone();
                 let n = self.pop()?;

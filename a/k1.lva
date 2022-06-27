@@ -2,6 +2,18 @@ global main
 global other
 
 main:
+push_i 0
+push_i 1
+ecall pi
+push_f32 .5
+fmul
+push_i 1
+ecall sin
+push_i 1
+ecall sayf
+pop
+fin
+
 push_i 15
 store_g a
 push_i 3
@@ -19,7 +31,6 @@ pop
 load_g a
 load_g b
 mul
-pop
 pop
 fin
 

@@ -14,8 +14,7 @@ pub fn main() {
         }
     };
 
-    println!("PGM: {:?}", &pgm);
-    println!("sz: {}", &pgm.text.len());
+    pgm.dump();
 
     let mut vm = VM::new();
     if let Err(e) = vm.run(&pgm, "") {

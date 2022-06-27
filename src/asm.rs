@@ -214,15 +214,15 @@ impl AsmPgm {
             self.exts.push(String::from(parm));
             self.exts.len() - 1
         };
-        if index > 0xffff {
+        if index > 0xff {
             return Err(AsmError::TooManyExternalSymbols);
         }
-        let index = index as u16;
+        let index = index as u8;
         let o = Instruction {
             opcode,
             line_number: self.line_number,
             pos: self.text_pos,
-            oparg: index.to_be_bytes().to_vec(),
+            oparg: vec![index],
             optoken: None,
         };
         self.push_op(o);
