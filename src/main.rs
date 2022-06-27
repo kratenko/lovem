@@ -1,3 +1,4 @@
+/// Module holding the constants defining the opcodes for the VM.
 pub mod op {
     /// opcode: Do nothing. No oparg.
     ///
@@ -44,18 +45,8 @@ pub struct VM {
 }
 
 impl VM {
-    /// Removes the value from the top of the stack and returns it.
-    fn pop(&mut self) -> i64 {
-        self.stack.pop().unwrap()
-    }
-
-    /// Puts value at the top of the stack.
-    fn push(&mut self, v: i64) {
-        self.stack.push(v);
-    }
-
-    /// Load the next byte from the bytecode, increase programm counter, and return value.
-    fn load_u8(&mut self, pgm: &[u8]) -> u8 {
+    /// Reads the next byte from the bytecode, increase programm counter, and return byte.
+    fn fetch_u8(&mut self, pgm: &[u8]) -> u8 {
         if self.pc >= pgm.len() {
             panic!("End of program exceeded");
         }
@@ -66,21 +57,29 @@ impl VM {
 
     /// Executes a program (encoded in bytecode).
     pub fn run(&mut self, pgm: &[u8]) {
+        // initialise the VM to be in a clean start state:
         self.stack.clear();
         self.pc = 0;
         self.op_cnt = 0;
 
+        // Loop going through the whole program, one instruction at a time.
         loop {
+            // Log the vm's complete state, so we can follow what happens in console:
             println!("{:?}", self);
-            let opcode = self.load_u8(pgm);
+            // Fetch next opcode from program (increases program counter):
+            let opcode = self.fetch_u8(pgm);
+            // We count the number of instructions we execute:
             self.op_cnt += 1;
+            // If we are done, break loop and stop execution:
             if opcode == op::FIN {
-                println!("Terminated!");
-                println!("{:?}", self);
-                return;
+                break;
             }
+            // Execute the current instruction (with the opcode we loaded already):
             self.execute_op(pgm, opcode);
         }
+        // Execution terminated. Output the final state of the VM:
+        println!("Terminated!");
+        println!("{:?}", self);
     }
 
     /// Executes an instruction, using the opcode passed.
@@ -89,33 +88,45 @@ impl VM {
     /// manipulate the stack (push, pop).
     fn execute_op(&mut self, pgm: &[u8], opcode: u8) {
         println!("Executing op 0x{:02x}", opcode);
-        if opcode == op::NOP {
-            println!("  NOP");
-            // do nothing
-        } else if opcode == op::POP {
-            println!("  POP");
-            let v = self.stack.pop().unwrap();
-            println!("  dropping value {}", v);
-        } else if opcode == op::PUSH_U8 {
-            println!("  PUSH_U8");
-            let v = self.load_u8(pgm);
-            println!("  value: {}", v);
-            self.stack.push(v as i64);
-        } else if opcode == op::ADD {
-            println!("  ADD");
-            let a = self.stack.pop().unwrap();
-            let b = self.stack.pop().unwrap();
-            self.stack.push(a + b);
+        match opcode {
+            op::NOP => {
+                println!("  NOP");
+                // do nothing
+            },
+            op::POP => {
+                println!("  POP");
+                let v = self.stack.pop().unwrap();
+                println!("  dropping value {}", v);
+            },
+            op::PUSH_U8 => {
+                println!("  PUSH_U8");
+                let v = self.fetch_u8(pgm);
+                println!("  value: {}", v);
+                self.stack.push(v as i64);
+            },
+            op::ADD => {
+                println!("  ADD");
+                let a = self.stack.pop().unwrap();
+                let b = self.stack.pop().unwrap();
+                self.stack.push(a + b);
+            },
+            _ => {
+                panic!("unknown opcode!");
+            }
         }
     }
 }
 
 fn main() {
+    // Create a program in bytecode.
+    // We just hardcode the bytes in an array here:
     let pgm = [op::NOP, op::PUSH_U8, 100, op::PUSH_U8, 77, op::ADD, op::POP, 0xff];
+    // Crate our VM instance.
     let mut vm = VM{
         stack: Vec::with_capacity(100),
         pc: 0,
         op_cnt: 0
     };
+    // Execute the program in our VM:
     vm.run(&pgm);
 }
