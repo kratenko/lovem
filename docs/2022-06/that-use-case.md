@@ -1,10 +1,10 @@
-# That use-case I was talking about
-
-__This is why every existing scripting language is objectively bad! Sorry, I wanted 
-to say: This is my problem and languages do not seem to be designed for it.__
-
-:octicons-book-24: Entry \#3 ·
-:octicons-calendar-24: 2022-06-24
+---
+title: That use-case I was talking about
+author: kratenko
+author_gh_user: kratenko
+entry: 3
+publish_date: 2022-06-27
+starter: "This is why every existing scripting language is objectively bad! Sorry, I wanted to say: This is my problem and languages do not seem to be designed for it."
 ---
 
 I was mentioning it, was I not? Languages do not seem to fit very well on by problem.
