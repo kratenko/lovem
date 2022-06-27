@@ -1,6 +1,10 @@
-# Script or virtual
-:octicons-book-24: Entry \#4 ·
-:octicons-calendar-24: 2022-06-24
+---
+title: Script or virtual
+author: kratenko
+author_gh_user: kratenko
+entry: 4
+publish_date: 2022-06-28
+starter: "After the quest for a scripting languages failed, we plan writing our own."
 ---
 
 ## Script it then!

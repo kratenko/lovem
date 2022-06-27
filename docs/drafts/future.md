@@ -546,7 +546,7 @@ with the `if let` statement.
 Bonus points: [line 65][line65]. If that is clear to you, you need have no worries, you 
 are into enums and how to use them
 
-# Homework
+## Homework
 So, this is what will get you through a lot here, try that order:
 
   1. `Option`
@@ -570,6 +570,14 @@ gets better when you use them.
 [line70]: https://github.com/kratenko/lovem/blob/9d97281bd6ffdae894f8052c91ea32d1d761fdb2/src/main.rs#L70
 [line101]: https://github.com/kratenko/lovem/blob/9d97281bd6ffdae894f8052c91ea32d1d761fdb2/src/main.rs#L101
 [line161]: https://github.com/kratenko/lovem/blob/9d97281bd6ffdae894f8052c91ea32d1d761fdb2/src/main.rs#L161
+
+
+
+# To the library
+
+
+
+
 
 
 # [...] ----------------- far in the future ---
