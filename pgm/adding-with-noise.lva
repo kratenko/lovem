@@ -1,0 +1,16 @@
+# a very simple lovem assembly program for lovem v0.0.4-journey
+# lines starting with # are comments
+    # there can be whitespaces before the #
+nop  # you can have comments at the end of a line, after the instruction
+
+# empty lines are ignored
+push_u8 100
+   push_u8   77   # multiple whitespaces are like a single one
+add
+pop
+fin
+
+# program will never get here, after `fin`, but the assembler will, so
+# there must not be syntax errors here
+
+# comments are fine, of course.

@@ -1,4 +1,4 @@
-use crate::op;
+use crate::{op, Pgm};
 
 /// An error that happens during execution of a program inside the VM.
 #[derive(Debug, Clone, PartialEq)]
@@ -51,8 +51,8 @@ impl VM {
     }
 
     /// Reads the next byte from the bytecode, increase programm counter, and return byte.
-    fn fetch_u8(&mut self, pgm: &[u8]) -> Result<u8, RuntimeError> {
-        if let Some(v) = pgm.get(self.pc) {
+    fn fetch_u8(&mut self, pgm: &Pgm) -> Result<u8, RuntimeError> {
+        if let Some(v) = pgm.text.get(self.pc) {
             self.pc += 1;
             Ok(*v)
         } else {
@@ -61,7 +61,7 @@ impl VM {
     }
 
     /// Executes a program (encoded in bytecode).
-    pub fn run(&mut self, pgm: &[u8]) -> Result<(), RuntimeError> {
+    pub fn run(&mut self, pgm: &Pgm) -> Result<(), RuntimeError> {
         // initialise the VM to be in a clean start state:
         self.stack.clear();
         self.pc = 0;
@@ -92,7 +92,7 @@ impl VM {
     ///
     /// This might load more data from the program (opargs) and
     /// manipulate the stack (push, pop).
-    fn execute_op(&mut self, pgm: &[u8], opcode: u8) -> Result<(), RuntimeError> {
+    fn execute_op(&mut self, pgm: &Pgm, opcode: u8) -> Result<(), RuntimeError> {
         println!("Executing op 0x{:02x}", opcode);
         match opcode {
             op::NOP => {

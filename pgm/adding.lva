@@ -1,0 +1,6 @@
+nop
+push_u8 100
+push_u8 77
+add
+pop
+fin

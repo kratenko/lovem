@@ -1,7 +1,10 @@
 [package]
 name = "lovem"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 authors = ["kratenko"]
 
 [dependencies]
+regex = "1.5"
+lazy_static = "1.4"
+parse_int = "0.6"
