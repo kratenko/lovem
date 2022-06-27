@@ -1,36 +1,10 @@
-/// Module holding the constants defining the opcodes for the VM.
-pub mod op {
-    /// opcode: Do nothing. No oparg.
-    ///
-    /// pop: 0, push: 0
-    /// oparg: 0
-    pub const NOP: u8 = 0x00;
-    /// opcode: Pop value from stack and discard it.
-    ///
-    /// pop: 1, push: 0
-    /// oparg: 0
-    pub const POP: u8 = 0x01;
-    /// opcode: Push immediate value to stack.
-    ///
-    /// pop: 0, push: 1
-    /// oparg: 1B, u8 value to push
-    pub const PUSH_U8: u8 = 0x02;
-    /// opcode: Add top two values on stack.
-    ///
-    /// pop: 2, push: 1
-    /// oparg: 0
-    pub const ADD: u8 = 0x10;
-    /// opcode: Terminate program.
-    ///
-    /// pop: 0, push: 0
-    /// oparg: 0
-    pub const FIN: u8 = 0xff;
-}
+use crate::op;
 
+/// An error that happens during execution of a program inside the VM.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeError {
     EndOfProgram,
-    InvalidOperation(u8),
+    UnknownOpcode(u8),
     StackUnderflow,
     StackOverflow,
 }
@@ -60,7 +34,7 @@ impl VM {
             op_cnt: 0
         }
     }
-    
+
     /// Tries and pops a value from value stack, respecting frame base.
     fn pop(&mut self) -> Result<i64, RuntimeError> {
         self.stack.pop().ok_or(RuntimeError::StackUnderflow)
@@ -145,25 +119,8 @@ impl VM {
                 self.push(a + b)
             },
             _ => {
-                Err(RuntimeError::InvalidOperation(opcode))
+                Err(RuntimeError::UnknownOpcode(opcode))
             }
-        }
-    }
-}
-
-fn main() {
-    // Create a program in bytecode.
-    // We just hardcode the bytes in an array here:
-    let pgm = [op::NOP, op::PUSH_U8, 100, op::PUSH_U8, 77, op::ADD, op::POP, 0xff];
-    // Crate our VM instance.
-    let mut vm = VM::new(100);
-    // Execute the program in our VM:
-    match vm.run(&pgm) {
-        Ok(_) => {
-            println!("Execution successful.")
-        }
-        Err(e) => {
-            println!("Error during execution: {:?}", e);
         }
     }
 }
