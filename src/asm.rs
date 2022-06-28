@@ -131,13 +131,19 @@ impl AsmPgm {
         self.push_instruction(i)
     }
 
-    /// Handles a single instruction of opcode an optional oparg parsed from Assemly file.
+    /// Handles a single instruction of opcode an optional oparg parsed from Assembly file.
     fn parse_instruction(&mut self, opname: &str, oparg: Option<&str>) -> Result<(), AsmError> {
         match opname {
             "nop" => self.parse_a0_instruction(op::NOP, oparg),
             "fin" => self.parse_a0_instruction(op::FIN, oparg),
             "pop" => self.parse_a0_instruction(op::POP, oparg),
+            "dup" => self.parse_a0_instruction(op::DUP, oparg),
             "add" => self.parse_a0_instruction(op::ADD, oparg),
+            "sub" => self.parse_a0_instruction(op::SUB, oparg),
+            "mul" => self.parse_a0_instruction(op::MUL, oparg),
+            "div" => self.parse_a0_instruction(op::DIV, oparg),
+            "mod" => self.parse_a0_instruction(op::MOD, oparg),
+            "neg" => self.parse_a0_instruction(op::NEG, oparg),
             "push_u8" => {
                 let oparg = oparg.ok_or(AsmError::MissingArgument)?;
                 let v = parse_int::parse::<u8>(oparg).or(Err(AsmError::InvalidArgument))?;
