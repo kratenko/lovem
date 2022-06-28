@@ -1,4 +1,5 @@
 //! A simple assembler program to easily create bytecode.
+use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
@@ -9,6 +10,7 @@ use crate::{op, Pgm};
 lazy_static! {
     static ref ANY_WHITESPACES: Regex = regex::Regex::new(r"\s+").unwrap();
     static ref OP_LINE_RE: Regex = regex::Regex::new(r"^(\S+)(?: (.+))?$").unwrap();
+    static ref LABEL_NAME_RE: Regex = regex::Regex::new(r"^[A-Za-z_][0-9A-Za-z_]{0,31}?$").unwrap();
 }
 
 #[derive(Debug, Clone)]
@@ -18,6 +20,14 @@ pub enum AsmError {
     UnexpectedArgument,
     MissingArgument,
     InvalidArgument,
+    InvalidLabel,
+    DuplicateLabel(String),
+    UnknownLabel(String),
+    BranchTooLong,
+    /// Tried to update a label operation's parm with wrong parm length.
+    ///
+    /// If this error occurs, there is an error in the Assembler.
+    InvalidLabelArg,
 }
 
 #[derive(Debug)]
@@ -43,6 +53,7 @@ struct AsmInstruction {
     ///
     /// Number of bytes that come before this instruction in the program.
     pos: usize,
+    label: Option<String>,
 }
 
 impl AsmInstruction {
@@ -53,6 +64,42 @@ impl AsmInstruction {
     pub fn size(&self) -> usize {
         1 + self.oparg.len()
     }
+
+    /// Updates relative position to label in parm.
+    ///
+    /// When an instruction is parsed, that has a label as parameter used for a relative branch,
+    /// the parameter's bytes are left blank, because the distance towards
+    /// the destination might not be known, yet.
+    /// This function must only be called on instructions with a label, and it must have
+    /// two bytes used for its parm.
+    fn update_label_oparg(&mut self, dest: usize) -> Result<(), AsmError> {
+        if self.oparg.len() != 2 {
+            // This is a program error in the Assembler.
+            // It used to panic! in this situation, but I prefer error reporting.
+            return Err(AsmError::InvalidLabelArg);
+        }
+        let offset = dest as isize - (self.pos + self.size()) as isize;
+        let offset = i16::try_from(offset).or(Err(AsmError::BranchTooLong))?;
+        let bb = offset.to_be_bytes();
+        self.oparg[0] = bb[0];
+        self.oparg[1] = bb[1];
+        Ok(())
+    }
+
+    /// Updates parameter bytes for instructions with relative branch to a label.
+    ///
+    /// Function will be called on each instruction, after the parsing of an assembly program has
+    /// completed, and the position of all labels inside the bytecode is known.
+    /// `map` contains absolute postions in byte code of the program's labels by name.
+    fn update_label_oparg_if_needed(&mut self, map: &HashMap<String, usize>) -> Result<(), AsmError> {
+        if let Some(label) = &self.label {
+            let dest = map.get(label).ok_or(AsmError::UnknownLabel(String::from(label)))?;
+            self.update_label_oparg(*dest)
+        } else {
+            // Instruction does not have a label, so there is nothing to be done. This is fine.
+            Ok(())
+        }
+    }
 }
 
 
@@ -62,6 +109,7 @@ struct AsmPgm {
     line_number: usize,
     text_pos: usize,
     error: Option<AsmError>,
+    labels: HashMap<String, usize>,
 }
 
 impl AsmPgm {
@@ -85,6 +133,16 @@ impl AsmPgm {
             // empty line (or comment only) - skip
             return Ok(());
         }
+        if let Some(l) = line.strip_suffix(":") {
+            if LABEL_NAME_RE.is_match(l) {
+                if let Some(prev) = self.labels.insert(String::from(l), self.text_pos) {
+                    return Err(AsmError::DuplicateLabel(String::from(l)));
+                }
+                return Ok(());
+            } else {
+                return Err(AsmError::InvalidLabel)
+            }
+        }
         if let Some(caps) = OP_LINE_RE.captures(&line) {
             let opname = caps.get(1).unwrap().as_str();
             let parm = caps.get(2).map(|m| m.as_str());
@@ -107,6 +165,7 @@ impl AsmPgm {
             opcode,
             oparg: vec![],
             pos: self.text_pos,
+            label: None
         };
         self.push_instruction(i)
     }
@@ -127,6 +186,22 @@ impl AsmPgm {
             opcode,
             oparg: vec![a1],
             pos: self.text_pos,
+            label: None,
+        };
+        self.push_instruction(i)
+    }
+
+    fn parse_label_instruction(&mut self, opcode: u8, oparg: Option<&str>) -> Result<(), AsmError> {
+        let oparg = oparg.ok_or(AsmError::MissingArgument)?;
+        if !LABEL_NAME_RE.is_match(oparg) {
+            return Err(AsmError::InvalidArgument);
+        }
+        let i = AsmInstruction{
+            line_number: self.line_number,
+            opcode,
+            oparg: vec![0, 0],
+            pos: self.text_pos,
+            label: Some(String::from(oparg)),
         };
         self.push_instruction(i)
     }
@@ -149,6 +224,7 @@ impl AsmPgm {
                 let v = parse_int::parse::<u8>(oparg).or(Err(AsmError::InvalidArgument))?;
                 self.push_a1_instruction(op::PUSH_U8, v)
             },
+            "iflt" => self.parse_label_instruction(op::IFLT, oparg),
             _ => Err(AsmError::UnknownInstruction(String::from(opname)))
         }
     }
@@ -160,6 +236,7 @@ impl AsmPgm {
             line_number: 0,
             text_pos: 0,
             error: None,
+            labels: Default::default()
         };
         let lines = io::BufReader::new(file).lines().enumerate();
         for (n, line) in lines {
@@ -171,22 +248,21 @@ impl AsmPgm {
                 break;
             }
         }
-        /*
+
         // fix branch offsets
         if p.error.is_none() {
-            for o in &mut p.instructions {
-                if let Err(e) = o.update_label_parm_if_needed(&p.labels) {
+            for i in &mut p.instructions {
+                if let Err(e) = i.update_label_oparg_if_needed(&p.labels) {
                     // Safe error in program and update line number to that of the operation
                     // where the error occurred:
                     p.error = Some(e);
-                    p.line_number = o.line_number;
+                    p.line_number = i.line_number;
                     // Abort parsing on first error:
                     break;
                 }
             }
         }
 
-         */
         // The parsed assembly program (might have run into error during parsing)
         p
     }

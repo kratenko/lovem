@@ -8,6 +8,7 @@ pub enum RuntimeError {
     StackUnderflow,
     StackOverflow,
     DivisionByZero,
+    InvalidBranch,
 }
 
 /// The virtual machine itself.
@@ -61,6 +62,16 @@ impl VM {
         }
     }
 
+    fn fetch_i8(&mut self, pgm: &Pgm) -> Result<i8, RuntimeError> {
+        Ok(self.fetch_u8(pgm)? as i8)
+    }
+
+    fn fetch_i16(&mut self, pgm: &Pgm) -> Result<i16, RuntimeError> {
+        let hi = self.fetch_i8(pgm)? as i16;
+        let lo = self.fetch_u8(pgm)? as i16;
+        Ok(hi << 8 | lo)
+    }
+
     /// Executes a program (encoded in bytecode).
     pub fn run(&mut self, pgm: &Pgm) -> Result<(), RuntimeError> {
         // initialise the VM to be in a clean start state:
@@ -86,6 +97,24 @@ impl VM {
         // Execution terminated. Output the final state of the VM:
         println!("Terminated!");
         println!("{:?}", self);
+        Ok(())
+    }
+
+    fn branch(&mut self, pgm: &Pgm, offset: i16) -> Result<(), RuntimeError> {
+        if offset < 0 {
+            let off = -offset as usize;
+            if off > self.pc {
+                return Err(RuntimeError::InvalidBranch);
+            }
+            self.pc -= off;
+        }
+        if offset > 0 {
+            let off = offset as usize;
+            if pgm.text.len() - self.pc <= off {
+                return Err(RuntimeError::InvalidBranch);
+            }
+            self.pc += off;
+        }
         Ok(())
     }
 
@@ -160,6 +189,15 @@ impl VM {
                 println!("  NEG");
                 let a = self.pop()?;
                 self.push(-a)
+            },
+            op::IFLT => {
+                let offset = self.fetch_i16(pgm)?;
+                let v = self.pop()?;
+                if v < 0 {
+                    self.branch(pgm, offset)
+                } else {
+                    Ok(())
+                }
             },
             _ => {
                 Err(RuntimeError::UnknownOpcode(opcode))

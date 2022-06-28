@@ -1,0 +1,10 @@
+    push_u8 0
+loop:
+    push_u8 1
+    add
+    dup
+    push_u8 4
+    sub
+    iflt loop
+    pop
+    fin
