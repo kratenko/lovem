@@ -16,6 +16,7 @@ class Entry:
     entry_path = None
     title = None
     published = None
+    head_at = 0
     start_at = 0
     stop_at = 0
     dir = None
@@ -30,6 +31,7 @@ def parse_file_header(path):
         headline = None
         words = 0
         bucks = 0
+        head_at = 0
 
         for n, line in enumerate(file.readlines(), start=1):
             sline = line.strip()
@@ -44,6 +46,7 @@ def parse_file_header(path):
             elif state == "meta":
                 if is_lim:
                     state = "head"
+                    head_at = n + 1
                 else:
                     meta.append(line)
             elif state == "head":
@@ -72,6 +75,7 @@ def parse_file_header(path):
     e.published = pub
     e.title = headline
     e.start_at = start_at
+    e.head_at = head_at
     e.dir = pub[:7]
     e.entry_path = os.path.join(e.dir, os.path.basename(path))
     e.number = y.get('entry')
@@ -118,6 +122,8 @@ nav = mkdocs_gen_files.Nav()
 
 entries = {}
 
+months = {}
+
 for root, dirs, files in os.walk("blog"):
     for fn in files:
         file_path = os.path.join(root, fn)
@@ -132,8 +138,29 @@ for d, e in sorted(entries.items(), reverse=True):
     # print(d, e)
     with open(e.file_path, "r") as f_in:
         print(f"{e.file_path} -> {e.entry_path}")
+        teaser = []
         with mkdocs_gen_files.open(e.entry_path, "w") as f:
+            in_teaser = False
+            first_block = False
             for n, line in enumerate(f_in.readlines(), start=1):
+                sline = line.strip()
+#                print(f"SLINE: in_t={in_teaser}, fb={first_block} | {sline}")
+                if n == e.head_at:
+                    in_teaser = True
+                if in_teaser:
+                    tline = line.lstrip()
+                    if tline.startswith("#"):
+                        tline = "#" + tline
+                    teaser.append(tline)
+                    if n > e.start_at:
+                        if first_block:
+                            if sline == "":
+                                first_block = False
+                                in_teaser = False
+                        else:
+                            if not sline.startswith('#') and not sline == "":
+                                # start first block
+                                first_block = True
                 print(line, file=f, end="")
                 if n == e.start_at:
                     bibs = []
@@ -144,7 +171,7 @@ for d, e in sorted(entries.items(), reverse=True):
                     if e.reading_time is not None:
                         bibs.append(f":octicons-clock-24: {e.reading_time} read")
                     bibs = " · ".join(bibs)
-                    print(f"""
+                    addition = f"""
 
 <aside class="mdx-author" markdown>
 ![@kratenko](https://avatars.githubusercontent.com/kratenko)
@@ -156,4 +183,20 @@ for d, e in sorted(entries.items(), reverse=True):
 
 ---
 
-""", file=f)
+"""
+                    print(addition, file=f)
+                    teaser.append(addition)
+            e.teaser = "".join(teaser)
+            month = e.published[:7]
+            if month not in months:
+                months[month] = []
+            months[month].append(e)
+            print("\nSTART-BLOCK: {}\nEND-BLOCK\n".format("".join(teaser)))
+            print(e.start_at, e.head_at)
+
+print(months)
+for m, es in months.items():
+    with mkdocs_gen_files.open(f"{m}.md", "w") as f:
+        for e in es:
+            print(e.teaser, file=f)
+            print(f"[:octicons-arrow-right-24: Continue reading]({e.entry_path})", file=f)
