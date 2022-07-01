@@ -15,6 +15,9 @@ theme:
     # - navigation.tabs.sticky
     - navigation.top
     - navigation.tracking
+    - navigation.expand
+
+use_directory_urls: false
 
 extra_css:
   - stylesheets/custom.css
@@ -24,16 +27,12 @@ plugins:
   - exclude:
       glob:
         - drafts/*
-  - minify:
-      #minify_html: true
-      #minify_js: true
-      #minify_css: true
-      #htmlmin_opts:
-      #  remove_comments: true
-  # - macros
   - gen-files:
       scripts:
-        - gen_blog.py
+        - blogem.py
+  - literate-nav:
+      nav_file: NAV.md
+      implicit_index: true
 
 # Extensions
 markdown_extensions:
@@ -61,8 +60,8 @@ markdown_extensions:
   - pymdownx.keys
   - pymdownx.magiclink:
       repo_url_shorthand: true
-      user: squidfunk
-      repo: mkdocs-material
+      user: kratenko
+      repo: lovem
   - pymdownx.mark
   - pymdownx.smartsymbols
   - pymdownx.superfences:
@@ -76,12 +75,14 @@ markdown_extensions:
       custom_checkbox: true
   - pymdownx.tilde
 
-xxnav:
+nav:
   - The Journey: index.md
-  - Entries:
+  - Journal: journal/
+  - Journal (complete months): months/
+#  - Entries:
 #    - 2022-06/making-virtual-a-reality.md
 #    - 2022-06/what-is-a-virtual-machine-anyway.md
-    - 2022-06/script-or-virtual.md
-    - 2022-06/that-use-case.md
-    - 2022-06/we-need-another-wheel.md
-    - 2022-06/lovem-again.md
+#    - 2022-06/script-or-virtual.md
+#    - 2022-06/that-use-case.md
+#    - 2022-06/we-need-another-wheel.md
+#    - 2022-06/lovem-again.md

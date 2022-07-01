@@ -4,6 +4,8 @@ mkdocs-minify-plugin
 mkdocs-exclude
 mkdocs-macros-plugin
 mkdocs-gen-files
+mkdocs-literate-nav
+python-slugify
 
 #markdown>=3.2
 #mkdocs-material-extensions>=1.0.3
