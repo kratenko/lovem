@@ -55,6 +55,11 @@ limitations come from the ways mkdocs itself handles the navigation, so that is 
 that would have been nice. And the error messages popping up did not help at all, because the actual 
 error happens way later in the process inside mkdocs itself and is some weird side effect problem.
 
+## The script
+If you want to take a look, see [`blogem.py`][blogem]. That will be the script in its current state. 
+For the version of the script at the time of writing, see the permalink, 
+[the original `blogem.py`][blogem-perma].
+
 ## TODOs
 * ~~Automated reload in `mkdocs serve` when I edit entry sources.~~ <br>
   _just add parameter `-w journal` to `mkdocs serve`_
@@ -69,3 +74,5 @@ error happens way later in the process inside mkdocs itself and is some weird si
 [source]: https://github.com/kratenko/lovem/blob/journey/journal/2022-07/05-state-of-the-journal.md
 [gen-files]: https://oprypin.github.io/mkdocs-gen-files/
 [literate-nav]: https://oprypin.github.io/mkdocs-literate-nav/
+[blogem]: https://github.com/kratenko/lovem/blob/journey/blogem.py
+[blogem-perma]: https://github.com/kratenko/lovem/blob/2d6f5e4c5c95064e8ba2c0dd4468777df08b8e0c/blogem.py
