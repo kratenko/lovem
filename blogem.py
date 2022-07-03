@@ -6,6 +6,7 @@ import yaml
 from mkdocs.exceptions import BuildError
 from slugify import slugify
 
+JOURNAL_SOURCE_PATH = "journal"
 
 def month_name(n):
     names = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -49,8 +50,10 @@ class Entry:
         bucks = 0
         in_first_paragraph = False
         end_of_teaser = 0
+        last_line = 0
         with open(path, "r") as file:
             for n, line in enumerate(file.readlines(), start=1):
+                last_line = n
                 sline = line.strip()
                 if state == "start":
                     if sline == "":
@@ -91,6 +94,9 @@ class Entry:
                             in_first_paragraph = True
                     words += len(sline.split())
         self.end_of_teaser_line = end_of_teaser
+        if self.end_of_teaser_line == 0:
+            # no blank line after first paragraph was found - so let's just use the whole thing:
+            self.end_of_teaser_line = last_line
 
         y = yaml.safe_load("".join(meta))
         self.number = y.get("entry")
@@ -106,8 +112,7 @@ class Entry:
         self.entry_path_in_group = self.slug + ".md"
         self.entry_path = os.path.join(self.group, self.entry_path_in_group)
 
-    def card(self):
-        """Return source for the "author/meta"-card for blog posts."""
+    def get_bibs(self):
         bibs = []
         if self.published is not None:
             bibs.append(f":octicons-calendar-24: {self.published}")
@@ -115,8 +120,12 @@ class Entry:
             bibs.append(f":octicons-book-24: Entry \\#{self.number}")
         if self.reading_time is not None:
             bibs.append(f":octicons-clock-24: {self.reading_time} read")
+        return bibs
+
+    def card(self):
+        """Return source for the "author/meta"-card for blog posts."""
         # The infos in lower line; date, reading time, ...
-        bibs = " · ".join(bibs)
+        bibs = " · ".join(self.get_bibs())
         card = f"""
 
 <aside class="mdx-author" markdown>
@@ -133,6 +142,13 @@ class Entry:
         return card
 
     def print_teaser(self, *, file):
+        """
+        Print the teaser for this entry to `file`.
+
+        Will change level of headers inside text.
+        :param file:
+        :return:
+        """
         with open(self.file_path, "r") as src_f:
             for n, line in enumerate(src_f.readlines(), start=1):
                 if not line.startswith("    ") and line.lstrip().startswith("#"):
@@ -214,43 +230,50 @@ def blogem():
     the blog.
     """
     # All prepared entries, by published date/time (date/time must be unique for whole blog).
-    groups = load_entries("blog")
+    groups = load_entries(JOURNAL_SOURCE_PATH)
 
-    # build nav for months in descending order:
-    for group, es in sorted(groups.items(), reverse=True):
-        # Build the nav entries for the month:
-        with mkdocs_gen_files.open(os.path.join(group, "NAV.md"), "w") as dst_f:
-            for e in reversed(es):
-                print(f"- [{e.title}]({e.entry_path_in_group})", file=dst_f)
-                with mkdocs_gen_files.open(e.entry_path, "w") as entry_f:
-                    e.print_entry(file=entry_f)
-        # Build month's overview page, with teasers and "continue reading" links:
-        with mkdocs_gen_files.open(os.path.join(group, "index.md"), "w") as dst_f:
-            print("# Journal entries from " + pretty_month(group), file=dst_f)
-            print("[Read all in single page](ALL.md)", file=dst_f)
-            for e in reversed(es):
-                e.print_teaser(file=dst_f)
+    # Go through groups and groups' entries in descending order, for latest-first views:
+    with mkdocs_gen_files.open("journal/NAV.md", "w") as journal_nav_file:
+        for group, entries in sorted(groups.items(), reverse=True):
+            print(f"- [{pretty_month(group)}](../{group}/)", file=journal_nav_file)
+            # Build the nav entries for the month:
+            with mkdocs_gen_files.open(os.path.join(group, "NAV.md"), "w") as group_nav_file, mkdocs_gen_files.open(os.path.join(group, "index.md"), "w") as group_overview_file:
+                print("---\nsearch:\n  exclude: true\n---\n", file=group_overview_file)
+                print("# Journal entries from " + pretty_month(group), file=group_overview_file)
+                print("[Read all in single page](ALL.md)", file=group_overview_file)
+                for e in reversed(entries):
+                    print(f"- [{e.title}]({e.entry_path_in_group})", file=group_nav_file)
+                    with mkdocs_gen_files.open(e.entry_path, "w") as entry_file:
+                        e.print_entry(file=entry_file)
+                        e.print_teaser(file=group_overview_file)
 
-    # Build top level nav for blog (months in descending order).
-    # Must live in a directory, that does not need to do anything als.
-    with mkdocs_gen_files.open("journal/NAV.md", "w") as nav_f:
-        for group, es in sorted(groups.items(), reverse=True):
-            print(f"- [{pretty_month(group)}](../{group}/)", file=nav_f)
-            with mkdocs_gen_files.open(group + "/ALL.md", "w") as dst_f:
-                print(f"# Complete month of {pretty_month(group)}", file=dst_f)
-                for e in es:
-                    e.print_entry(file=dst_f, is_sub_page=True)
-
-    # Build nav for months' ALL pages (in ascending order):
-    with mkdocs_gen_files.open("months/NAV.md", "w") as months_f:
-        for group, es in sorted(groups.items()):
-            print(f"- [{pretty_month(group)} complete](../{group}/ALL.md)", file=months_f)
+    # Go through groups and groups' entries in ascending order, for whole-month views:
+    with mkdocs_gen_files.open("months/NAV.md", "w") as months_nav_file:
+        for group, entries in sorted(groups.items()):
+            print(f"- [{pretty_month(group)} complete](../{group}/ALL.md)", file=months_nav_file)
+            with mkdocs_gen_files.open(group + "/ALL.md", "w") as all_file:
+                print(f"# Complete month of {pretty_month(group)}", file=all_file)
+                for e in entries:
+                    e.print_entry(file=all_file, is_sub_page=True)
 
     with mkdocs_gen_files.open("journal/index.md", "w") as f:
-        nav = """
-# Journal
+        _, latest_group = sorted(groups.items(), reverse=True)[0]
+        latest_entry = latest_group[-1]
+        _, first_group = sorted(groups.items())[0]
+        first_entry = first_group[0]
+        #print("# Journal\n_Latest entry_", file=f)
+        #latest_entry.print_teaser(file=f)
+        nav = f"""
+# Jounal
 
-## Latest entry
+## Starting points
+### Latest entry
+[{latest_entry.title}](../{latest_entry.entry_path}) <br>
+{" · ".join(latest_entry.get_bibs())}
+
+### First entry
+[{first_entry.title}](../{first_entry.entry_path}) <br>
+{" · ".join(first_entry.get_bibs())}
 
 ## Complete month in single page
 
@@ -258,7 +281,7 @@ If you want to read the whole story, this might be easier to follow.
 
 """
         print(nav, file=f)
-        for group, es in sorted(groups.items()):
+        for group, entries in sorted(groups.items()):
             print(f"- [{pretty_month(group)} complete](../{group}/ALL.md)", file=f)
 
 

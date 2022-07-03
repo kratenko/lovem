@@ -11,7 +11,7 @@ This is new to me, let's see what will happen!
 My work on lovem so far has been focused on self education. Why not share my insights?
 I hope it will be useful to someone &ndash; maybe even for my future self?
 
-<center>&mdash; [The journey starts here](2022-06/lovem-again.md) &mdash;</center>
+<center>&mdash; [The journey starts here](2022-06/ALL.md) &mdash;</center>
 
 ## Lovem
 Lovem is meant to become a virtual machine for use in constrained embedded devices. 
@@ -37,20 +37,14 @@ on the "Blog" page.
 
 So, big shout out to @squidfunk for their work!
 
-For now, I managed to find some instructions on how to generate the blog entries header.
-I used the instruction in from the blog post
-[Enable Blogging Capabilities with Material for MkDocs][blog-mod] by @slavipande.
-
-Two things I needed to change, since the information is a bit outdated:
-
-  1. You need to copy code from the file `src/partials/content.html`.
-  2. You need to create the file `overrides/partials/content.html`.
-
-The rest seems fine. Thanks to @slavipande for it.
-
-So I might just find the time and motivation, to give this journal a bit more of a personal touch;
-and hopefully some automation for creating my blog posts, soon. Then again, I might not. 
-The content is online, and that is what is most important.
+I managed to hack together a little script I called `blogem`, that solves blogging for me. 
+It is not ready to be used for other projects, but if you are curious, you are welcome to 
+take a look at it. It uses [`mkdocs-gen-files`][gen-files] and [`mkdocs-literate-nav`][literate-nav]
+by @oprypin. Or maybe it abuses those plugins, I'm not sure, but it works for now. 
+See Journal entry [*State of the journal*][journal-post] for more that part of the story.
+Pretty sure I will change every thing again at some point. But currently, I quite like it.
 
 [material]: https://squidfunk.github.io/mkdocs-material/
-[blog-mod]: https://www.dirigible.io/blogs/2021/11/2/material-blogging-capabilities/
+[gen-files]: https://oprypin.github.io/mkdocs-gen-files/
+[literate-nav]: https://oprypin.github.io/mkdocs-literate-nav/
+[journal-post]: 2022-07/state-of-the-journal.md
