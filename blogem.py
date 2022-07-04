@@ -99,6 +99,8 @@ class Entry:
             self.end_of_teaser_line = last_line
 
         y = yaml.safe_load("".join(meta))
+        if y is None:
+            raise BuildError(f"No meta section in file: {path}")
         self.number = y.get("entry")
         mins = words // self.WORDS_READ_PER_MINUTE
         if mins == 0:
@@ -186,6 +188,9 @@ def load_entries(path):
     """
     entries = {}
     for root, _, files in os.walk(path):
+        if root.startswith(os.path.join(path, "draft")):
+            # skip draft directory, where I put my articles before publishing them:
+            continue
         for fn in files:
             file_path = os.path.join(root, fn)
             e = Entry()

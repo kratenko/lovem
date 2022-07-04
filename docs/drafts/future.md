@@ -57,7 +57,7 @@ the idea of this journey came later. But I digress.
 If you are thinking: "What is that weird source code?", then you are in for a real treat (and a lot of pain), 
 should you chose to follow up. The code you are seeing is written in [Rust][rust].
 
-# Once again: but why?
+## Once again: but why?
 Why Rust? Because Rust! Writing Rust can feel so good! And for something like a VM, it is such a good choice. 
 If you have never heard of the language (or heard of it, but never looked at it), it is hard to understand 
 why this is so. My advice: try it! use it! Or read along this journal, code along, you might like it.

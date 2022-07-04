@@ -1,19 +1,21 @@
-# Making virtual a reality
-:octicons-book-24: Entry \#3 ·
-:octicons-calendar-24: 2022-06-24 ·
-:octicons-clock-24: 3 min read
 ---
-So I have been talking a lot about VMs without doing anything concrete. Well 
+entry: 8
+published: 2022-07-04
+---
+
+# Making virtual a reality
+
+__So I have been talking a lot about VMs without doing anything concrete. Well 
 that is not true, I have done quite a bit already, but I am still describing 
-earlier steps. We will get there.
+earlier steps. We will get there.__
 
 ## Registers?
-When I was looking around a scripting language to use inside our embedded 
+When I was looking around for a scripting language to use inside our embedded 
 devices, I came across an article I mentioned in an earlier post: 
 [Creating a Virtual Machine/Register VM in C][register-book].
 
 Reading it made me want to try working with a register machine, mainly because I 
-have not been stuff like this since my early semesters. Never hurts to refresh git@github.com:kratenko/lovem.git
+have not been stuff like this since my early semesters. Never hurts to refresh
 rusty knowledge.
 
 So I started designing a register VM, starting from that code, but more complex, 
@@ -27,7 +29,7 @@ I was experimenting with a quite complicated instruction word encoding. I was tr
 to fit everything in a few bits (32 of them if I recall correctly) with varying 
 instruction code length and quite long arguments. I wanted to include instructions 
 on three registers, which takes up quite some bits to address. Of course, you can 
-get away with two register operations only - or if you are fancy you can even use 
+get away with two-register operations only - or if you are fancy you can even use 
 a single address or even no address for most instructions. You will just end up 
 with a lot of register swapping. I guess my rational for having three addresses in 
 an instruction was code size. For what I want to do, 32 bit instruction words feel 

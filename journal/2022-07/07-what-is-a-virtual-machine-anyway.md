@@ -1,12 +1,11 @@
+---
+entry: 7
+published: 2022-07-04
+---
 # What is a Virtual Machine anyway?
 
-:octicons-book-24: Entry \#2 ·
-:octicons-calendar-24: 2022-06-24 ·
-:octicons-clock-24: 5 min read
----
-
-So, how do you build a Virtual Machine. There are actually quite different 
-approaches. The most important difference (at least to me) is:
+So, how do you build a Virtual Machine. There are actually two quite different 
+approaches:
 
 * *Register Machine* vs. *Stack Machine*
 
@@ -17,9 +16,10 @@ it will be close enough for this article.
 
 
 ## Register Machines
-Most physical computers are register machines. You are most likely using one 
+Most physical computers are register machines. At least those you will 
+be thinking of. You are most likely using one 
 right now to read this article. Virtual register machines use the same 
-concepts, but not in physical hardware, but inside another computer as 
+concepts, but not in physical hardware, instead inside another computer as 
 software. This allows them to do some things a bit more flexible than a 
 real hardware machine would.
 
@@ -46,7 +46,7 @@ Because the number and size of arguments needed for an operation differ for
 different operations, decoding the instruction can be quite complicated.
 When you put multiple instructions together, you end up with a program. 
 This representation of a computer program is called *machine code*. For a 
-virtual machine it is also *called bytecode*, although I think this term 
+virtual machine it is also called *bytecode*, although I think this term 
 fits better for stack machines (more on that later).
 
 If you want to understand what I tried to describe here, read this really short 
@@ -69,7 +69,7 @@ So a typical operations would be:
    register 0."
  * "Take the lower 16 bits of this instruction and write them in register 2."
 
-Lua and Neko are register machines (at least in current versions).
+Lua and Neko are virtual register machines (at least in current versions).
 
 [register-book]: https://en.wikibooks.org/wiki/Creating%5fa%5fVirtual%5fMachine/Register%5fVM%5fin%5fC
 
@@ -79,12 +79,12 @@ And then there are *Stack Machines*. They are, I think, easier to understand tha
 register machines, but following a program during execution is more confusing, since 
 the manipulated data is more complicated to follow.
 
-A stack is just a pile of data. Data is portioned in fixed sizes, a portion is called 
+A *stack* is just a pile of data. Data is portioned in fixed sizes, a portion is called 
 a word. All you can normally do is put a word on top of the stack - we will call that 
 operation a *push*, or you can take the word that is currently on top of the stack 
 (if there is one) - we will call that a *pop*. No other direct manipulations of 
 the stack are allowed (I say "direct manipulations", because indirectly there often are 
-ways that is done, but that is a detail for later). 
+ways that this is done, but that is a detail for later). 
 
 Manipulation of data is done this way by the machine. If you want to add two numbers, 
 say 5 and 23, you would write a program that does this: 
@@ -107,18 +107,20 @@ is no need to address its location, as you would do in a register machine.
 Because of this, the instructions for a stack machine are typically encoded in a 
 single byte. This byte holds a number we will call *opcode* (short for operation code), 
 that simply identifies the operation to execute. If your operation does need additional 
-arguments, you write them to the bytes following your opcode byte, so that the operation 
-can read them from your program. This structure of single bytes encoding our program is 
-why we call this representation *bytecode*.
+arguments, you write them to the bytes following your opcode byte (the *oparg*), so that 
+the operation can read them from your program. This structure of single bytes encoding 
+our program is why we call this representation *bytecode*.
 
 The concept of a stack machine is easy to implement in software, but it is not so 
 easy to do so in hardware. That is why your typical computer is a register machine.
+There are, however, a lot of historical examples of important physical 
+stack machines.
 
-The most famous example of a stack machine is the *Java VM*. Java source code is 
+The most famous example of a virtual stack machine is the *Java VM*. Java source code is 
 compiled to bytecode that is executed inside a virtual machine, the JVM. This vm is 
 so common, that many newer programming languages compile to Java bytecode. It makes 
 it possible to run programs written in that languages on any system that has a JVM; 
-and that includes just about every major and man minor computer systems. A second 
+and that includes just about every major and many minor computer systems. A second 
 example for a stack machine is the Python VM.
 
 
