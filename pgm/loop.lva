@@ -3,7 +3,7 @@ loop:
     push_u8 1
     add
     dup
-    push_u8 4
+    push_u8 2
     sub
     iflt loop
     pop

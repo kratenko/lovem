@@ -82,13 +82,15 @@ impl VM {
         // Loop going through the whole program, one instruction at a time.
         loop {
             // Log the vm's complete state, so we can follow what happens in console:
-            println!("{:?}", self);
+            println!("{:?}", self.stack);
             // Fetch next opcode from program (increases program counter):
             let opcode = self.fetch_u8(pgm)?;
             // We count the number of instructions we execute:
             self.op_cnt += 1;
             // If we are done, break loop and stop execution:
             if opcode == op::FIN {
+                println!("  #{} @ {}: opcode 0x{:02x}", self.op_cnt, self.pc - 1, opcode);
+                println!("  FIN");
                 break;
             }
             // Execute the current instruction (with the opcode we loaded already):
@@ -123,7 +125,7 @@ impl VM {
     /// This might load more data from the program (opargs) and
     /// manipulate the stack (push, pop).
     fn execute_op(&mut self, pgm: &Pgm, opcode: u8) -> Result<(), RuntimeError> {
-        println!("Executing op 0x{:02x}", opcode);
+        println!("  #{} @ {}: opcode 0x{:02x}", self.op_cnt, self.pc - 1, opcode);
         match opcode {
             op::NOP => {
                 println!("  NOP");
@@ -131,71 +133,77 @@ impl VM {
                 Ok(())
             },
             op::POP => {
-                println!("  POP");
                 let v = self.pop()?;
-                println!("  dropping value {}", v);
+                println!("  POP ({} -> )", v);
                 Ok(())
             },
             op::DUP => {
-                println!("  DUP");
                 let v = self.pop()?;
+                println!("  DUP ({} -> {}, {})", v, v, v);
                 self.push(v)?;
                 self.push(v)?;
                 Ok(())
             },
             op::PUSH_U8 => {
-                println!("  PUSH_U8");
                 let v = self.fetch_u8(pgm)?;
-                println!("  value: {}", v);
+                println!("  PUSH_U8 ( -> {})", v);
                 self.push(v as i64)
             },
             op::ADD => {
-                println!("  ADD");
                 let b = self.pop()?;
                 let a = self.pop()?;
-                self.push(a + b)
+                let s = a + b;
+                println!("  ADD ({}, {} -> {})", a, b, s);
+                self.push(s)
             },
             op::SUB => {
-                println!("  SUB");
                 let b = self.pop()?;
                 let a = self.pop()?;
-                self.push(a - b)
+                let r = a - b;
+                println!("  SUB ({}, {} -> {})", a, b, r);
+                self.push(r)
             },
             op::MUL => {
-                println!("  MUL");
                 let b = self.pop()?;
                 let a = self.pop()?;
-                self.push(a * b)
+                let r = a * b;
+                println!("  MUL ({}, {} -> {})", a, b, r);
+                self.push(r)
             },
             op::DIV => {
-                println!("  DIV");
                 let b = self.pop()?;
                 let a = self.pop()?;
                 if b == 0 {
                     return Err(RuntimeError::DivisionByZero);
                 }
-                self.push(a / b)
+                let r = a / b;
+                println!("  DIV ({}, {} -> {})", a, b, r);
+                self.push(r)
             },
             op::MOD => {
-                println!("  MOD");
                 let b = self.pop()?;
                 let a = self.pop()?;
                 if b == 0 {
                     return Err(RuntimeError::DivisionByZero);
                 }
-                self.push(a % b)
+                let r = a % b;
+                println!("  MOD ({}, {} -> {})", a, b, r);
+                self.push(r)
             },
             op::NEG => {
-                println!("  NEG");
                 let a = self.pop()?;
+                println!("  NEG ({} -> {})", a, -a);
                 self.push(-a)
             },
             op::IFLT => {
                 let offset = self.fetch_i16(pgm)?;
                 let v = self.pop()?;
+                println!("  IFLT ({} -> )", v);
                 if v < 0 {
+                    println!("  branch by {} to {}", offset, self.pc as i64 + offset as i64);
                     self.branch(pgm, offset)
                 } else {
+                    println!("  no branch");
                     Ok(())
                 }
             },
