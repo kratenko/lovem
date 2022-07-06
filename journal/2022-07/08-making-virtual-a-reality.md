@@ -1,6 +1,6 @@
 ---
 entry: 8
-published: 2022-07-04
+published: 2022-07-06
 ---
 
 # Making virtual a reality
@@ -74,7 +74,7 @@ that I want to take that road for a serious approach on creating lovem.
 ## Onwards
 I guess this concludes the prehistory of the lovem story. I am, for whatever reason, 
 back on the project, currently with a decent amount of motivation. You never know 
-how long that lasts, but right now I like the idea of continuing the development
-(I don't on keeping the current pace), while talking about the development process, 
+how long that lasts, but right now I like the idea of continuing the development, 
+while talking about the development process, 
 sharing my thoughts on decisions I make. Next post should start on sharing newer 
 thoughts.
