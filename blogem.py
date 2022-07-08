@@ -254,7 +254,7 @@ def blogem():
 
     # Go through groups and groups' entries in ascending order, for whole-month views:
     with mkdocs_gen_files.open("months/NAV.md", "w") as months_nav_file:
-        for group, entries in sorted(groups.items()):
+        for group, entries in sorted(groups.items(), reverse=True):
             print(f"- [{pretty_month(group)} complete](../{group}/ALL.md)", file=months_nav_file)
             with mkdocs_gen_files.open(group + "/ALL.md", "w") as all_file:
                 print(f"# Complete month of {pretty_month(group)}", file=all_file)
