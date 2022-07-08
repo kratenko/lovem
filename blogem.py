@@ -37,7 +37,7 @@ class Entry:
     entry_path_in_group = None
     title = None
 
-    WORDS_READ_PER_MINUTE = 275
+    WORDS_READ_PER_MINUTE = 250
     RE_META_FENCE = re.compile(r"^(---+|\.\.\.+)$")
 
     def from_file(self, path):
