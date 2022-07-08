@@ -4,6 +4,10 @@ published: 2022-07-08
 ---
 
 # Let there be source code
+
+__Finally, I will be showing some source code. Not directly in the journal, 
+but I will link you to GitHub, for a start.__
+
 I have written code. And this time, I (re-)started lovem in a public git repository, 
 so you can see what I do, if you are interested. And I hope it puts enough pressure
 on me, to keep on the project for a while.
