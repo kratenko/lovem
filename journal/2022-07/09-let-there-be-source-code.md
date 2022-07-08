@@ -28,7 +28,7 @@ quite lot more done...
 ## But where is the code?
 Well, if you read this journal, you will know where it lives. Anyway, this is the repo:
 
-https://kratenko.github.io/lovem/
+https://github.com/kratenko/lovem
 
 I plan to continue sharing my thoughts while I work on the VM. So you will be able to 
 follow my failures and see the attempts that I will be ditching later. I think the 
