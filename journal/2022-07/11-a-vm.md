@@ -93,7 +93,7 @@ We will write some methods for our `VM` struct. Let's start with the one for rea
 
 ~~~rust
 impl VM {
-    /// Fetch the next byte from the bytecode, increase programm counter, and return value.
+    /// Fetch the next byte from the bytecode, increase program counter, and return value.
     fn fetch_u8(&mut self, pgm: &[u8]) -> u8 {
         if self.pc >= pgm.len() {
             panic!("End of program exceeded");
@@ -153,7 +153,7 @@ impl VM {
 
 The comments should explain, what is going on there. Initialise VM, then loop over the program, 
 fetching one instruction at a time and executing it, until we reach the end.
-And you might have noticed, that our programm will be very talkative. I added a lot of `println`s, 
+And you might have noticed, that our program will be very talkative. I added a lot of `println`s, 
 that tell just about everything that happens, during execution.
 
 I guess it is time to look at those `op::` constants I keep using.

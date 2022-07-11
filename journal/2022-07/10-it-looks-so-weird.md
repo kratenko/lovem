@@ -77,4 +77,4 @@ understand it and fix it, there is this realisation, that fit in the sentence:
 
 So, this will not happen to me with this project, because those things will not happen with Rust!
 
-[rust]: [https://rust-lang.org]
+[rust]: https://rust-lang.org
