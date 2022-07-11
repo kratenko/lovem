@@ -5,13 +5,13 @@ not know how to do that, GitHub has documentation on [cloning a repositry][clone
 
 The way to do this in bash:
 
-~~~bash
+~~~shell
 git clone git@github.com:kratenko/lovem.git
 ~~~
 
 Or, if you have problems using git over ssh, use https:
 
-~~~bash
+~~~shell
 git clone https://github.com/kratenko/lovem.git
 ~~~
 
@@ -36,16 +36,26 @@ The easiest way to view source code for my posts, is having the
 checking out the tag. So, if you want to check out tag `v1.2.3-journey`, while inside your lovem 
 directory, simply type:
 
-~~~bash
+~~~shell
 git checkout v1.2.3-journey
 ~~~
 
 And you will have the code for that journal entry ready to be inspected with you favourite 
 IDE or editor. And you can fire up cargo to build the code and run the examples. You can then 
 mess around with the source and try out stuff. This really helps to understand what we are doing!
+And the best thing: you can mess around as much as you like. It is git! You can always switch 
+back to the current state of the code by typing 
+
+~~~shell
+git checkout master
+~~~
+
+You can even commit your tinkering to your own copy of the repo - be it inside your own branches, 
+or however you prefer.
 
 I will not be linking to the source code explicitly in my entries (only in the first ones, before 
 I introduced this). So be sure to use the link at the top or bottom, to find the source &ndash; or 
-better yet, just check out the tag listed top and bottom in your local repo clone.
+better yet, just check out the tag in your local repo clone. The git command will be listed in the 
+bottom of the entry.
 
 [clone]: https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository
