@@ -1,6 +1,6 @@
 ---
 entry: 11
-published: 2022-07-10
+published: 2022-07-11
 ---
 
 # A VM
