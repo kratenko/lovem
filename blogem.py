@@ -36,6 +36,7 @@ class Entry:
     entry_path = None
     entry_path_in_group = None
     title = None
+    tag = None
 
     WORDS_READ_PER_MINUTE = 250
     RE_META_FENCE = re.compile(r"^(---+|\.\.\.+)$")
@@ -113,6 +114,8 @@ class Entry:
             self.slug = y["slug"]
         self.entry_path_in_group = self.slug + ".md"
         self.entry_path = os.path.join(self.group, self.entry_path_in_group)
+        if "tag" in y:
+            self.tag = y["tag"]
 
     def get_bibs(self):
         bibs = []
@@ -122,6 +125,8 @@ class Entry:
             bibs.append(f":octicons-book-24: Entry \\#{self.number}")
         if self.reading_time is not None:
             bibs.append(f":octicons-clock-24: {self.reading_time} read")
+        if self.tag is not None:
+            bibs.append(f":octicons-tag-24: [{self.tag}](https://github.com/kratenko/lovem/releases/tag/{self.tag})")
         return bibs
 
     def card(self):
@@ -165,6 +170,12 @@ class Entry:
             print(f"\n[:octicons-arrow-right-24: Continue reading]({self.entry_path_in_group})", file=file)
 
     def print_entry(self, *, file, is_sub_page=False):
+        """
+        Print the entry's MD-text to `file`.
+        :param file:
+        :param is_sub_page:
+        :return:
+        """
         with open(self.file_path, "r") as src_f:
             for n, line in enumerate(src_f.readlines(), start=1):
                 # skip meta
@@ -179,6 +190,21 @@ class Entry:
                 # insert autor/meta card:
                 if n == self.insert_card_line:
                     print(self.card(), file=file)
+            # add `tag` information, if a source code tag is supplied for entry.
+            if not is_sub_page and self.tag is not None:
+                print(f"""
+<hr>
+*The source code for this post can be found under the tag `{self.tag}`*.
+
+- :octicons-code-24: [{self.tag} source code](https://github.com/kratenko/lovem/tree/{self.tag})
+- :octicons-tag-24: [{self.tag} release](https://github.com/kratenko/lovem/releases/tag/{self.tag})
+- :octicons-file-zip-24: [{self.tag}.zip](https://github.com/kratenko/lovem/archive/refs/tags/{self.tag}.zip)
+- :octicons-file-zip-24: [{self.tag}.tar.gz](https://github.com/kratenko/lovem/archive/refs/tags/{self.tag}.tar.gz)
+- `git checkout {self.tag}`
+
+*[What does this mean?](../source-code.md#tags)*
+
+""", file=file)
 
 
 def load_entries(path):
@@ -248,6 +274,7 @@ def blogem():
                 print("[Read all in single page](ALL.md)", file=group_overview_file)
                 for e in reversed(entries):
                     print(f"- [{e.title}]({e.entry_path_in_group})", file=group_nav_file)
+                    # Build the individual entry source files:
                     with mkdocs_gen_files.open(e.entry_path, "w") as entry_file:
                         e.print_entry(file=entry_file)
                         e.print_teaser(file=group_overview_file)
