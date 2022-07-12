@@ -1,6 +1,6 @@
 ---
 entry: 12
-published: 2022-07-10
+published: 2022-07-12
 ---
 
 # Running our first program
