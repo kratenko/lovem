@@ -1,6 +1,6 @@
 ---
 entry: 13
-published: 2022-07-20
+published: 2022-07-14
 ---
 
 # Turn "fragile" into "rusty"
