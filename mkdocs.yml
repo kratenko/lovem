@@ -2,6 +2,13 @@
 site_name: Lovem
 site_url: https://kratenko.github.io/lovem
 site_author: kratenko
+site_description: >-
+  Lovem & ndash; the low overhead virtual embedded machine. And the journey getting there.
+
+# Repository
+repo_name: kratenko/lovem
+repo_url: https://github.com/kratenko/lovem
+
 theme:
   name: material
   language: en
@@ -16,6 +23,9 @@ theme:
     - navigation.top
     - navigation.tracking
     - navigation.expand
+  font:
+    text: Roboto
+    code: Roboto Mono
 
 use_directory_urls: false
 
@@ -33,6 +43,16 @@ plugins:
   - literate-nav:
       nav_file: NAV.md
       implicit_index: true
+  - minify:
+      minify_html: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/kratenko
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/garstenko
+
 
 # Extensions
 markdown_extensions:
@@ -80,10 +100,3 @@ nav:
   - source-code.md
   - Journal: journal/
   - Journal (complete months): months/
-#  - Entries:
-#    - 2022-06/making-virtual-a-reality.md
-#    - 2022-06/what-is-a-virtual-machine-anyway.md
-#    - 2022-06/script-or-virtual.md
-#    - 2022-06/that-use-case.md
-#    - 2022-06/we-need-another-wheel.md
-#    - 2022-06/lovem-again.md
