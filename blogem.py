@@ -14,6 +14,25 @@ def month_name(n):
     return names[n - 1]
 
 
+GISCUS = """
+<script src="https://giscus.app/client.js"
+        data-repo="kratenko/lovem"
+        data-repo-id="R_kgDOHjmZ5Q"
+        data-category="Comments"
+        data-category-id="DIC_kwDOHjmZ5c4CQPDu"
+        data-mapping="pathname"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="light"
+        data-lang="en"
+        data-loading="lazy"
+        crossorigin="anonymous"
+        async>
+</script>
+"""
+
+
 def pretty_month(m):
     y, m = m.split("-")
     return month_name(int(m)) + " " + y
@@ -205,6 +224,7 @@ class Entry:
 *[What does this mean?](../source-code.md#tags)*
 
 """, file=file)
+            print(GISCUS, file=file)
 
 
 def load_entries(path):

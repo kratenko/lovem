@@ -95,4 +95,3 @@ gets better after a while, when you use them.
 [line70]: https://github.com/kratenko/lovem/blob/9d97281bd6ffdae894f8052c91ea32d1d761fdb2/src/main.rs#L70
 [line101]: https://github.com/kratenko/lovem/blob/9d97281bd6ffdae894f8052c91ea32d1d761fdb2/src/main.rs#L101
 [line161]: https://github.com/kratenko/lovem/blob/9d97281bd6ffdae894f8052c91ea32d1d761fdb2/src/main.rs#L161
-
