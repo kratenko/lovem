@@ -224,7 +224,8 @@ class Entry:
 *[What does this mean?](../source-code.md#tags)*
 
 """, file=file)
-            print(GISCUS, file=file)
+            if not is_sub_page:
+                print(GISCUS, file=file)
 
 
 def load_entries(path):
