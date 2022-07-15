@@ -7,6 +7,7 @@ pub enum RuntimeError {
     UnknownOpcode(u8),
     StackUnderflow,
     StackOverflow,
+    DivisionByZero,
 }
 
 /// The virtual machine itself.
@@ -114,9 +115,41 @@ impl VM {
             },
             op::ADD => {
                 println!("  ADD");
-                let a = self.pop()?;
                 let b = self.pop()?;
+                let a = self.pop()?;
                 self.push(a + b)
+            },
+            op::SUB => {
+                println!("  SUB");
+                let b = self.pop()?;
+                let a = self.pop()?;
+                self.push(a - b)
+            },
+            op::MUL => {
+                println!("  MUL");
+                let b = self.pop()?;
+                let a = self.pop()?;
+                self.push(a * b)
+            },
+            op::DIV => {
+                println!("  DIV");
+                let b = self.pop()?;
+                let a = self.pop()?;
+                if b == 0 {
+                    Err(RuntimeError::DivisionByZero)
+                } else {
+                    self.push(a / b)
+                }
+            },
+            op::MOD => {
+                println!("  MOD");
+                let b = self.pop()?;
+                let a = self.pop()?;
+                if b == 0 {
+                    Err(RuntimeError::DivisionByZero)
+                } else {
+                    self.push(a % b)
+                }
             },
             _ => {
                 Err(RuntimeError::UnknownOpcode(opcode))
