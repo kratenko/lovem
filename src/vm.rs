@@ -8,6 +8,7 @@ pub enum RuntimeError {
     StackUnderflow,
     StackOverflow,
     DivisionByZero,
+    InvalidJump,
 }
 
 /// The virtual machine itself.
@@ -58,6 +59,45 @@ impl VM {
             Ok(*v)
         } else {
             Err(RuntimeError::EndOfProgram)
+        }
+    }
+
+    /// Reads the next byte from the bytecode, increase programm counter, and return byte.
+    fn fetch_i8(&mut self, pgm: &[u8]) -> Result<i8, RuntimeError> {
+        if let Some(v) = pgm.get(self.pc) {
+            self.pc += 1;
+            Ok(*v as i8)
+        } else {
+            Err(RuntimeError::EndOfProgram)
+        }
+    }
+
+    /// Reads the next two bytes from the bytecode, increase programm counter by two, and return as i16.
+    fn fetch_i16(&mut self, pgm: &[u8]) -> Result<i16, RuntimeError> {
+        let hi = self.fetch_i8(pgm)? as i16;
+        let lo = self.fetch_u8(pgm)? as i16;
+        Ok(hi << 8 | lo)
+    }
+
+    /// Executes a checked relative jump; Runtime error, if jump leaves program.
+    fn relative_jump(&mut self, pgm: &[u8], delta: i16) -> Result<(), RuntimeError> {
+        println!("  Jump from {} by {}", self.pc, delta);
+        if delta < 0 {
+            let d = -delta as usize;
+            if self.pc >= d {
+                self.pc -= d;
+                Ok(())
+            } else {
+                Err(RuntimeError::InvalidJump)
+            }
+        } else {
+            let d = delta as usize;
+            if self.pc + d < pgm.len() {
+                self.pc += d;
+                Ok(())
+            } else {
+                Err(RuntimeError::InvalidJump)
+            }
         }
     }
 
@@ -151,6 +191,11 @@ impl VM {
                     self.push(a % b)
                 }
             },
+            op::GOTO => {
+                println!("  GOTO");
+                let d = self.fetch_i16(pgm)?;
+                self.relative_jump(pgm, d)
+            }
             _ => {
                 Err(RuntimeError::UnknownOpcode(opcode))
             }

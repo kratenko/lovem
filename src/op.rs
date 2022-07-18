@@ -48,6 +48,12 @@ pub const DIV: u8 = 0x13;
 /// oparg: 0
 pub const MOD: u8 = 0x14;
 
+/// opcode: Relative jump.
+///
+/// pop: 0, push: 0
+/// oparg: 2B, i16 relative jump
+pub const GOTO: u8 = 0x20;
+
 /// opcode: Terminate program.
 ///
 /// pop: 0, push: 0
