@@ -50,7 +50,7 @@ authors = ["kratenko"]
 [dependencies]
 ~~~
 
-The only real configuration in that file is `edition = "2021"`. Rust has a mager edition release every three years. 
+The only real configuration in that file is `edition = "2021"`. Rust has a major edition release every three years. 
 These are used to introduce braking changes. You have to specify the edition you use explicitly, and there are 
 migration guides. We use the most recent one, `2021`.
 
