@@ -5,3 +5,5 @@ edition = "2021"
 authors = ["kratenko"]
 
 [dependencies]
+clap = { version = "3.2.12", features = ["derive"] }
+anyhow = "1.0.58"
