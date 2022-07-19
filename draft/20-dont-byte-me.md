@@ -4,7 +4,7 @@ published: 2022-07-31
 tag: v0.0.7-journey
 ---
 
-# Don't byte me
+# Don't byte me!
 
 __I have had it with these motherloving bytes in this motherloving bytecode!__
 
