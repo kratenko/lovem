@@ -1,0 +1,5 @@
+# This program runs in an endless loop, but it will push a new value to the stack on every iteration.
+# It will inevitably lead to a stack overrun at some point and crash the program.
+push_u8 123
+goto -5
+fin

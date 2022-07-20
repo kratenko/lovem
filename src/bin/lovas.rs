@@ -25,8 +25,12 @@ struct Cli {
     #[clap(long, help = "Enable tracing log when running lovem.")]
     trace: bool,
 
+    #[clap(long, help = "Output the program to stdout.")]
+    print: bool,
+
     #[clap(long, default_value_t = 100, help = "Setting the stack size for lovem when running the program.")]
     stack_size: usize,
+
 }
 
 /// Executes a program in a freshly created lovem VM.
@@ -40,16 +44,16 @@ fn run(pgm: &Pgm, args: &Cli) -> Result<()> {
     match outcome {
         Ok(_) => {
             // Execution successful, program terminated:
-            eprintln!("Terminated.\nRuntime={:?}\npc={}, op_cnt={}, stack size={}, watermark={}",
+            eprintln!("Terminated.\nRuntime={:?}\nop_cnt={}, pc={}, stack-depth={}, watermark={}",
                       duration,
-                      vm.pc, vm.op_cnt, vm.stack.len(), vm.watermark
+                      vm.op_cnt, vm.pc, vm.stack.len(), vm.watermark
             );
             Ok(())
         },
         Err(e) => {
             // Runtime error. Error will be printed on return of main.
-            eprintln!("Runtime error!\nRuntime={:?}\npc={}, op_cnt={}, stack size={}, watermark={}",
-                      duration, vm.pc, vm.op_cnt, vm.stack.len(), vm.watermark);
+            eprintln!("Runtime error!\nRuntime={:?}\nop_cnt={}, pc={}, stack-depth={}, watermark={}",
+                      duration, vm.op_cnt, vm.pc, vm.stack.len(), vm.watermark);
             Err(Error::from(e))
         }
     }
@@ -68,15 +72,15 @@ fn main() -> Result<()> {
     // run the assembler:
     match asm::assemble(&name, &content) {
         Ok(pgm) => {
+            if args.print {
+                println!("{:?}", pgm);
+            }
             // we succeeded and now have a program with bytecode:
             if args.run {
                 // lovas was called with `--run`, so create a VM and execute program:
-                run(&pgm, &args)
-            } else {
-                // Just debug print the program, we have no storage format, yet:
-                println!("{:?}", pgm);
-                Ok(())
+                run(&pgm, &args)?
             }
+            Ok(())
         },
         Err(e) => {
             // Something went wrong during assembly.
