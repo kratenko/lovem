@@ -1,0 +1,6 @@
+# This will blow up with a runtime error, because it tries modulo division by zero.
+push_u8 4
+push_u8 0
+mod  # 4 % 0 = BOOM!
+pop  # never reached
+fin

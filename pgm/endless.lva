@@ -1,0 +1,3 @@
+push_u8 123
+goto -5
+fin
