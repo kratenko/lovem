@@ -22,15 +22,18 @@ struct Cli {
     #[clap(short, long, help = "Run the assembled program in lovem.")]
     run: bool,
 
-   #[clap(long, help = "Enable tracing log when running lovem.")]
+    #[clap(long, help = "Enable tracing log when running lovem.")]
     trace: bool,
+
+    #[clap(long, default_value_t = 100, help = "Setting the stack size for lovem when running the program.")]
+    stack_size: usize,
 }
 
 /// Executes a program in a freshly created lovem VM.
-fn run(pgm: &Pgm, trace: bool) -> Result<()> {
+fn run(pgm: &Pgm, args: &Cli) -> Result<()> {
     // Create our VM instance.
-    let mut vm = VM::new(100);
-    vm.trace = trace;
+    let mut vm = VM::new(args.stack_size);
+    vm.trace = args.trace;
     let start = Instant::now();
     let outcome = vm.run(&pgm.text);
     let duration = start.elapsed();
@@ -68,7 +71,7 @@ fn main() -> Result<()> {
             // we succeeded and now have a program with bytecode:
             if args.run {
                 // lovas was called with `--run`, so create a VM and execute program:
-                run(&pgm, args.trace)
+                run(&pgm, &args)
             } else {
                 // Just debug print the program, we have no storage format, yet:
                 println!("{:?}", pgm);
