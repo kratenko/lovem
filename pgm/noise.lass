@@ -1,0 +1,12 @@
+# This is an awesome program!
+ push_u8 123
+push_u8     200      # What are we using the # 200 for?
+
+
+add
+   pop
+
+
+# let's end it here!
+fin
+

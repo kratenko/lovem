@@ -1,9 +1,12 @@
 [package]
 name = "lovem"
-version = "0.0.7"
+version = "0.0.8"
 edition = "2021"
 authors = ["kratenko"]
 
 [dependencies]
 clap = { version = "3.2.12", features = ["derive"] }
 anyhow = "1.0.58"
+lazy_static = "1.4.0"
+regex = "1.6.0"
+parse_int = "0.6.0"

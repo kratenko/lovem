@@ -1,0 +1,5 @@
+push_u8 123
+push_u8 300
+add
+pop
+fin

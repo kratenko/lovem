@@ -1,6 +1,7 @@
 //! An experimental assembler for lovem
 use clap::Parser;
-use anyhow::{Context, Result};
+use anyhow::{Context, Error, Result};
+use lovem::asm;
 
 // You can find an introduction to clap here:
 // https://rust-cli.github.io/book/index.html
@@ -21,15 +22,25 @@ struct Cli {
 fn main() -> Result<()> {
     // read, validate, and evaluate command line parameters:
     let args = Cli::parse();
+    // Store the path to the program in a usable place:
+    let name = args.source.as_path().display().to_string();
     // read complete source file into String:
     let content = std::fs::read_to_string(&args.source)
         .with_context(
-            || format!("could not read file `{}`", args.source.as_path().display().to_string())
+            || format!("could not read file `{}`", &name)
         )?;
-    // For now, just print our all the lines in the file:
-    for (n, line) in content.lines().enumerate() {
-        println!("{:4}: '{}'", n + 1, line);
+    // run the assembler:
+    match asm::assemble(&name, &content) {
+        Ok(pgm) => {
+            // we succeeded and now have a program with bytecode:
+            println!("{:?}", pgm);
+            Ok(())
+        },
+        Err(e) => {
+            // Something went wrong during assembly.
+            // Convert the error report, so that `anyhow` can do its magic
+            // and display some helpful error message:
+            Err(Error::from(e))
+        },
     }
-    // We succeeded in our work, so return Ok() as a Result:
-    Ok(())
 }
