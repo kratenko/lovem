@@ -273,7 +273,7 @@ This is a long entry already. You can look at the complete state of the assemble
 sourcecode. You should know how to find the tags inside the repo by now. But I want to execute our 
 new program, using the labels, before I end this. Here it is again:
 
-~~~ title="pgm/label.lva"
+~~~ title="pgm/label.lva" linenums="1"
 # A small demonstration of how labels work with goto.
 push_u8 1
 goto coda
@@ -320,3 +320,7 @@ executed in that order. You can see the jumps in the trace, and you can see that
 termination holds the values in this order: `[1, 2, 3]`.
 
 Not much of a program, but it shows you, how our new labels work. And finally: no more counting bytes!
+
+## Homework
+Our programs `endless.lva` and `endless-stack.lva` no longer work, because we changed how the 
+`goto` instruction must be written. Can you fix them?
