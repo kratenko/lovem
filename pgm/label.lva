@@ -1,0 +1,10 @@
+# A small demonstration of how labels work with goto.
+push_u8 1
+goto coda
+
+back:
+  push_u8 3
+  fin
+
+ coda:  push_u8 2
+goto back

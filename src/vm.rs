@@ -40,6 +40,7 @@ pub struct VM {
     pub op_cnt: usize,
     /// Activate verbose activity logging during execution?
     pub trace: bool,
+    /// Maximal length the stack aver was, during execution.
     pub watermark: usize,
 }
 
@@ -80,7 +81,7 @@ impl VM {
         }
     }
 
-    /// Reads the next byte from the bytecode, increase programm counter, and return byte.
+    /// Reads the next byte from the bytecode, increase program counter, and return byte.
     fn fetch_i8(&mut self, pgm: &[u8]) -> Result<i8, RuntimeError> {
         if let Some(v) = pgm.get(self.pc) {
             self.pc += 1;
@@ -90,7 +91,7 @@ impl VM {
         }
     }
 
-    /// Reads the next two bytes from the bytecode, increase programm counter by two, and return as i16.
+    /// Reads the next two bytes from the bytecode, increase program counter by two, and return as i16.
     fn fetch_i16(&mut self, pgm: &[u8]) -> Result<i16, RuntimeError> {
         let hi = self.fetch_i8(pgm)? as i16;
         let lo = self.fetch_u8(pgm)? as i16;
@@ -168,7 +169,7 @@ impl VM {
                 Ok(())
             },
             op::POP => {
-                let v = self.pop()?;
+                self.pop()?;
                 Ok(())
             },
             op::PUSH_U8 => {

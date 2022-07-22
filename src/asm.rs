@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::error;
 use std::fmt::{Display, Formatter};
 use lazy_static::lazy_static;
@@ -9,6 +10,7 @@ use crate::{op, Pgm};
 lazy_static! {
     static ref ANY_WHITESPACES: Regex = regex::Regex::new(r"\s+").unwrap();
     static ref OP_LINE_RE: Regex = regex::Regex::new(r"^(\S+)(?: (.+))?$").unwrap();
+    static ref VALID_LABEL: Regex = regex::Regex::new(r"^[A-Za-z][0-9A-Za-z_]{0,31}$").unwrap();
 }
 
 /// Errors that can happen during assembly.
@@ -19,6 +21,10 @@ pub enum AsmError {
     UnexpectedArgument,
     MissingArgument,
     InvalidArgument,
+    InvalidLabel(String),
+    DuplicateLabel(String),
+    UnknownLabel(String),
+    JumpTooLong,
 }
 
 impl Display for AsmError {
@@ -74,6 +80,14 @@ struct AsmInstruction {
     ///
     /// Number of bytes that come before this instruction in the program.
     pos: usize,
+    /// Names argument taken from instruction (e.g. a label).
+    ///
+    /// This is used to store an identifier that acts as an argument to an instruction.
+    /// This is saved, because we do not know how to execute those at the time of parsing;
+    /// the complete source file must have been parsed before we know destination addresses
+    /// of labels.
+    /// This information will be used on the "2nd run" to set the oparg bytes.
+    argument_token: Option<String>,
 }
 
 impl AsmInstruction {
@@ -104,6 +118,8 @@ struct AsmPgm {
     text_pos: usize,
     /// The error that happened during parsing/assembling, if any.
     error: Option<AsmError>,
+    /// A map storing label definitions by name with there position in bytecode.
+    labels: HashMap<String, usize>,
 }
 
 impl AsmPgm {
@@ -122,7 +138,7 @@ impl AsmPgm {
     }
 
     /// Handles a single cleaned line from an Assembly program.
-    fn parse_line(&mut self, line: String) -> Result<(), AsmError> {
+    fn parse_clean_line(&mut self, line: String) -> Result<(), AsmError> {
         if line == "" {
             // empty line (or comment only) - skip
             return Ok(());
@@ -149,6 +165,7 @@ impl AsmPgm {
             opcode,
             oparg: vec![],
             pos: self.text_pos,
+            argument_token: None,
         };
         self.push_instruction(i)
     }
@@ -169,10 +186,13 @@ impl AsmPgm {
             opcode,
             oparg: vec![a0],
             pos: self.text_pos,
+            argument_token: None,
         };
         self.push_instruction(i)
     }
 
+    /*
+    We have no a2-instructions at the moment
     /// Helper that creates an instruction with 1 byte of oparg and pushes it.
     fn push_a2_instruction(&mut self, opcode: u8, a0: u8, a1: u8) -> Result<(), AsmError> {
         let i = AsmInstruction{
@@ -180,8 +200,35 @@ impl AsmPgm {
             opcode,
             oparg: vec![a0, a1],
             pos: self.text_pos,
+            label: None,
         };
         self.push_instruction(i)
+    }
+     */
+
+    /// Helper, that pushes an instruction, that as two bytes oparg and has a label in assembler.
+    ///
+    /// Instruction will reserve two bytes of oparg, filled with zeros. The actual value will be
+    /// updated in the second run through the program, when the whole source has been parsed.
+    fn push_label_instruction(&mut self, opcode: u8, label: &str) -> Result<(), AsmError> {
+        let i = AsmInstruction{
+            line_number: self.line_number,
+            opcode,
+            oparg: vec![0, 0],
+            pos: self.text_pos,
+            argument_token: Some(String::from(label)),
+        };
+        self.push_instruction(i)
+    }
+
+    /// Helper that parses (and pushes) a line with an operation, that takes a label as arg and stores it in two bytes
+    fn parse_label_instruction(&mut self, opcode: u8, oparg: Option<&str>) -> Result<(), AsmError> {
+        let label = oparg.ok_or(AsmError::MissingArgument)?;
+        if VALID_LABEL.is_match(label) {
+            self.push_label_instruction(opcode, label)
+        } else {
+            Err(AsmError::InvalidLabel(String::from(label)))
+        }
     }
 
     /// Handles a single instruction of opcode an optional oparg parsed from Assembly file.
@@ -201,36 +248,96 @@ impl AsmPgm {
                 self.push_a1_instruction(op::PUSH_U8, v)
             },
             "goto" => {
-                let oparg = oparg.ok_or(AsmError::MissingArgument)?;
-                let v = parse_int::parse::<i16>(oparg).or(Err(AsmError::InvalidArgument))?;
-                let a = v.to_be_bytes();
-                self.push_a2_instruction(op::GOTO, a[0], a[1])
+                self.parse_label_instruction(op::GOTO, oparg)
             },
             _ => Err(AsmError::UnknownInstruction(String::from(opname)))
         }
     }
 
-    /// Parse an assembly program from source into `AsmPgm` struct.
-    fn parse(name: &str, content: &str) -> AsmPgm {
-        // create a new, clean instance to fill during parsing:
-        let mut p = AsmPgm {
-            name: String::from(name),
-            instructions: vec![],
-            line_number: 0,
-            text_pos: 0,
-            error: None,
-        };
+    /// Parses and extracts optional label definition from line.
+    ///
+    /// Looks for a colon ':'. If one exists, the part before the first colon will be
+    /// seen as the name for a label, that is defined on this line. Instructions inside
+    /// the program that execute jumps can refer to these labels as a destination.
+    /// Lines containing a label definition may also contain an instruction and/or a comment.
+    /// This can return `AsmError::InvalidLabel` if the part before the colon is not a valid
+    /// label name, or `AsmError::DuplicateLabel` if a label name is reused.
+    /// If a label could be parsed, it will be stored to the `AsmPgm`.
+    /// On success, the line without the label definition is returned, so that it can be
+    /// used to extract an instruction. This will be the complete line, if there was no
+    /// label definition.
+    fn parse_label_definition<'a>(&mut self, line: &'a str) -> Result<&'a str, AsmError> {
+        if let Some((label, rest)) = line.split_once(":") {
+            let label = label.trim_start();
+            if VALID_LABEL.is_match(label) {
+                if self.labels.contains_key(label) {
+                    Err(AsmError::DuplicateLabel(String::from(label)))
+                } else {
+                    self.labels.insert(String::from(label), self.text_pos);
+                    Ok(rest)
+                }
+            } else {
+                Err(AsmError::InvalidLabel(String::from(label)))
+            }
+        } else {
+            Ok(line)
+        }
+    }
+
+    /// Parses source code and fills AsmPgm with instructions from it.
+    ///
+    /// If there is an error, parsing is aborted, and the error is stored.
+    fn parse(&mut self, content: &str) -> Result<(), AsmError> {
         // read the source, one line at a time, adding instructions:
         for (n, line) in content.lines().enumerate() {
-            p.line_number = n + 1;
+            // File lines start counting at 1:
+            self.line_number = n + 1;
+            let line = self.parse_label_definition(line)?;
             let line = AsmPgm::clean_line(line);
-            if let Err(e) = p.parse_line(line) {
-                // Store error in program and abort parsing:
-                p.error = Some(e);
-                break;
+            self.parse_clean_line(line)?;
+        }
+        Ok(())
+    }
+
+    /// Update those instructions that need post processing.
+    ///
+    /// Some instructions need information that is only present, after the complete
+    /// source file has been parsed. Those will be updated in this "second run".
+    /// Opargs have been filled with placeholders before. The number of bytes should not be
+    /// altered, because jump destinations are calculated from the number of bytes.
+    fn update_instructions(&mut self) -> Result<(), AsmError> {
+        for i in &mut self.instructions {
+            self.line_number = i.line_number;
+            if let Some(label) = &i.argument_token {
+                if let Some(&dest) = self.labels.get(label) {
+                    let src = i.pos + i.size();
+                    if src.abs_diff(dest) > i16::MAX as usize {
+                        return Err(AsmError::JumpTooLong);
+                    }
+                    let delta = (dest as i64 - src as i64) as i16;
+                    i.oparg[..2].copy_from_slice(&delta.to_be_bytes()[..2]);
+                } else {
+                    return Err(AsmError::UnknownLabel(String::from(label)));
+                }
             }
         }
-        p
+        Ok(())
+    }
+
+    fn process(&mut self, content: &str) -> Result<(), AsmError> {
+        // Go over complete source, extracting instructions. Some will have their opargs
+        // left empty (with placeholders).
+        self.parse(content)?;
+        self.update_instructions()
+    }
+
+    /// Process assembly source code. Must be used with "empty" AsmPgm.
+    fn process_assembly(&mut self, content: &str) {
+        // this function is just a wrapper around `process()`, so that I can use the
+        // return magic and don't need to write the error check twice.
+        if let Err(e) = self.process(content) {
+            self.error = Some(e);
+        }
     }
 
     /// Convert parsed assembly source to runnable program (or error report).
@@ -259,6 +366,17 @@ impl AsmPgm {
 
 /// Parse assembly source code and turn it into a runnable program (or create report).
 pub fn assemble(name: &str, content: &str) -> Result<Pgm, AsmErrorReport> {
-    let asm_pgm = AsmPgm::parse(name, content);
+    // create a new, clean instance to fill during parsing:
+    let mut asm_pgm = AsmPgm {
+        name: String::from(name),
+        instructions: vec![],
+        line_number: 0,
+        text_pos: 0,
+        error: None,
+        labels: Default::default(),
+    };
+    // evaluate the source code:
+    asm_pgm.process_assembly(content);
+    // convert to Pgm instance if successful, or to Error Report, if assembly failed:
     asm_pgm.to_program()
 }
