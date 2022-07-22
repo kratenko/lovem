@@ -172,6 +172,12 @@ impl VM {
                 self.pop()?;
                 Ok(())
             },
+            op::DUP => {
+                let v = self.pop()?;
+                self.push(v)?;
+                self.push(v)?;
+                Ok(())
+            },
             op::PUSH_U8 => {
                 let v = self.fetch_u8(pgm)?;
                 self.push(v as i64)
@@ -212,7 +218,61 @@ impl VM {
             op::GOTO => {
                 let d = self.fetch_i16(pgm)?;
                 self.relative_jump(pgm, d)
-            }
+            },
+            op::IFEQ => {
+                let d = self.fetch_i16(pgm)?;
+                let v = self.pop()?;
+                if v == 0 {
+                    self.relative_jump(pgm, d)
+                } else {
+                    Ok(())
+                }
+            },
+            op::IFNE => {
+                let d = self.fetch_i16(pgm)?;
+                let v = self.pop()?;
+                if v != 0 {
+                    self.relative_jump(pgm, d)
+                } else {
+                    Ok(())
+                }
+            },
+            op::IFLT => {
+                let d = self.fetch_i16(pgm)?;
+                let v = self.pop()?;
+                if v < 0 {
+                    self.relative_jump(pgm, d)
+                } else {
+                    Ok(())
+                }
+            },
+            op::IFLE => {
+                let d = self.fetch_i16(pgm)?;
+                let v = self.pop()?;
+                if v <= 0 {
+                    self.relative_jump(pgm, d)
+                } else {
+                    Ok(())
+                }
+            },
+            op::IFGT => {
+                let d = self.fetch_i16(pgm)?;
+                let v = self.pop()?;
+                if v > 0 {
+                    self.relative_jump(pgm, d)
+                } else {
+                    Ok(())
+                }
+            },
+            op::IFGE => {
+                let d = self.fetch_i16(pgm)?;
+                let v = self.pop()?;
+                if v >= 0 {
+                    self.relative_jump(pgm, d)
+                } else {
+                    Ok(())
+                }
+            },
             _ => {
                 Err(RuntimeError::UnknownOpcode(opcode))
             }

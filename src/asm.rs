@@ -237,6 +237,7 @@ impl AsmPgm {
             "nop" => self.parse_a0_instruction(op::NOP, oparg),
             "fin" => self.parse_a0_instruction(op::FIN, oparg),
             "pop" => self.parse_a0_instruction(op::POP, oparg),
+            "dup" => self.parse_a0_instruction(op::DUP, oparg),
             "add" => self.parse_a0_instruction(op::ADD, oparg),
             "sub" => self.parse_a0_instruction(op::SUB, oparg),
             "mul" => self.parse_a0_instruction(op::MUL, oparg),
@@ -247,9 +248,13 @@ impl AsmPgm {
                 let v = parse_int::parse::<u8>(oparg).or(Err(AsmError::InvalidArgument))?;
                 self.push_a1_instruction(op::PUSH_U8, v)
             },
-            "goto" => {
-                self.parse_label_instruction(op::GOTO, oparg)
-            },
+            "goto" => self.parse_label_instruction(op::GOTO, oparg),
+            "ifeq" => self.parse_label_instruction(op::IFEQ, oparg),
+            "ifne" => self.parse_label_instruction(op::IFNE, oparg),
+            "iflt" => self.parse_label_instruction(op::IFLT, oparg),
+            "ifle" => self.parse_label_instruction(op::IFLE, oparg),
+            "ifgt" => self.parse_label_instruction(op::IFGT, oparg),
+            "ifge" => self.parse_label_instruction(op::IFGE, oparg),
             _ => Err(AsmError::UnknownInstruction(String::from(opname)))
         }
     }
