@@ -1,0 +1,24 @@
+# A program demonstrating use of variables.
+start:
+    # val = 1
+    push_u8 1
+    store val   # variable is declared implicitly here. We only have one type: i64
+    # for loop, 5 rounds:
+    push_u8 5
+loop:
+    # val = val * 2:
+    load val
+    push_u8 2
+    mul
+    store val
+    # check loop counter:
+    push_u8 1
+    sub
+    dup
+    ifgt loop
+end:
+    pop
+    # output final value of val
+    load val
+    out
+    fin

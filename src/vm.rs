@@ -1,7 +1,7 @@
 use std::cmp::max;
 use std::error;
 use std::fmt::{Display, Formatter};
-use crate::op;
+use crate::{op, Pgm};
 
 /// An error that happens during execution of a program inside the VM.
 #[derive(Debug, Clone, PartialEq)]
@@ -13,6 +13,7 @@ pub enum RuntimeError {
     DivisionByZero,
     InvalidJump,
     InstructionLimitExceeded,
+    InvalidVariable,
 }
 
 impl Display for RuntimeError {
@@ -35,6 +36,10 @@ pub struct VM {
     ///
     /// Points to instruction in bytecode that is to be executed next.
     pub pc: usize,
+    /// Frame base register
+    ///
+    /// Pointer to the bottom of the stack for the current frame.
+    pub fb: usize,
     /// Operation counter.
     ///
     /// Let's us know how "long" the execution took.
@@ -52,6 +57,7 @@ impl VM {
         VM{
             stack: Vec::with_capacity(stack_size),
             pc: 0,
+            fb: 0,
             op_cnt: 0,
             trace: false,
             watermark: 0,
@@ -61,7 +67,11 @@ impl VM {
 
     /// Tries and pops a value from value stack, respecting frame base.
     fn pop(&mut self) -> Result<i64, RuntimeError> {
-        self.stack.pop().ok_or(RuntimeError::StackUnderflow)
+        if self.stack.len() > self.fb {
+            Ok(self.stack.pop().unwrap())
+        } else {
+            Err(RuntimeError::StackUnderflow)
+        }
     }
 
     /// Tries and pushes a value to value stack, respecting stack size.
@@ -76,8 +86,8 @@ impl VM {
     }
 
     /// Reads the next byte from the bytecode, increase programm counter, and return byte.
-    fn fetch_u8(&mut self, pgm: &[u8]) -> Result<u8, RuntimeError> {
-        if let Some(v) = pgm.get(self.pc) {
+    fn fetch_u8(&mut self, pgm: &Pgm) -> Result<u8, RuntimeError> {
+        if let Some(v) = pgm.text.get(self.pc) {
             self.pc += 1;
             Ok(*v)
         } else {
@@ -86,8 +96,8 @@ impl VM {
     }
 
     /// Reads the next byte from the bytecode, increase program counter, and return byte.
-    fn fetch_i8(&mut self, pgm: &[u8]) -> Result<i8, RuntimeError> {
-        if let Some(v) = pgm.get(self.pc) {
+    fn fetch_i8(&mut self, pgm: &Pgm) -> Result<i8, RuntimeError> {
+        if let Some(v) = pgm.text.get(self.pc) {
             self.pc += 1;
             Ok(*v as i8)
         } else {
@@ -96,14 +106,14 @@ impl VM {
     }
 
     /// Reads the next two bytes from the bytecode, increase program counter by two, and return as i16.
-    fn fetch_i16(&mut self, pgm: &[u8]) -> Result<i16, RuntimeError> {
+    fn fetch_i16(&mut self, pgm: &Pgm) -> Result<i16, RuntimeError> {
         let hi = self.fetch_i8(pgm)? as i16;
         let lo = self.fetch_u8(pgm)? as i16;
         Ok(hi << 8 | lo)
     }
 
     /// Executes a checked relative jump; Runtime error, if jump leaves program.
-    fn relative_jump(&mut self, pgm: &[u8], delta: i16) -> Result<(), RuntimeError> {
+    fn relative_jump(&mut self, pgm: &Pgm, delta: i16) -> Result<(), RuntimeError> {
         if self.trace {
             println!("  Jump from {} by {}", self.pc, delta);
         }
@@ -117,7 +127,7 @@ impl VM {
             }
         } else {
             let d = delta as usize;
-            if self.pc + d < pgm.len() {
+            if self.pc + d < pgm.text.len() {
                 self.pc += d;
                 Ok(())
             } else {
@@ -127,12 +137,17 @@ impl VM {
     }
 
     /// Executes a program (encoded in bytecode).
-    pub fn run(&mut self, pgm: &[u8]) -> Result<(), RuntimeError> {
+    pub fn run(&mut self, pgm: &Pgm) -> Result<(), RuntimeError> {
         // initialise the VM to be in a clean start state:
         self.stack.clear();
         self.pc = 0;
         self.op_cnt = 0;
         self.watermark = 0;
+        // create global variables in stack:
+        for _ in 0..pgm.vars {
+            self.push(0)?;
+        }
+        self.fb = pgm.vars as usize;
 
         // Loop going through the whole program, one instruction at a time.
         loop {
@@ -141,7 +156,7 @@ impl VM {
                 println!("{:?}", self);
             }
             // Fetch next opcode from program (increases program counter):
-            let opcode = self.fetch_u8(pgm)?;
+            let opcode = self.fetch_u8(&pgm)?;
             // Limit execution by number of instructions that will be executed:
             if self.instruction_limit != 0 && self.op_cnt >= self.instruction_limit {
                 return Err(RuntimeError::InstructionLimitExceeded);
@@ -153,7 +168,7 @@ impl VM {
                 break;
             }
             // Execute the current instruction (with the opcode we loaded already):
-            self.execute_op(pgm, opcode)?;
+            self.execute_op(&pgm, opcode)?;
         }
         // Execution terminated. Output the final state of the VM:
         if self.trace {
@@ -167,7 +182,7 @@ impl VM {
     ///
     /// This might load more data from the program (opargs) and
     /// manipulate the stack (push, pop).
-    fn execute_op(&mut self, pgm: &[u8], opcode: u8) -> Result<(), RuntimeError> {
+    fn execute_op(&mut self, pgm: &Pgm, opcode: u8) -> Result<(), RuntimeError> {
         if self.trace {
             println!("Executing op 0x{:02x}", opcode);
         }
@@ -184,6 +199,11 @@ impl VM {
                 let v = self.pop()?;
                 self.push(v)?;
                 self.push(v)?;
+                Ok(())
+            },
+            op::OUT => {
+                let v = self.pop()?;
+                println!("Out: {} (@{})", v, self.op_cnt);
                 Ok(())
             },
             op::PUSH_U8 => {
@@ -278,6 +298,25 @@ impl VM {
                 if v >= 0 {
                     self.relative_jump(pgm, d)
                 } else {
+                    Ok(())
+                }
+            },
+            op::STORE => {
+                let idx = self.fetch_u8(pgm)?;
+                if idx >= pgm.vars {
+                    Err(RuntimeError::InvalidVariable)
+                } else {
+                    let v = self.pop()?;
+                    self.stack[idx as usize] = v;
+                    Ok(())
+                }
+            },
+            op::LOAD => {
+                let idx = self.fetch_u8(pgm)?;
+                if idx >= pgm.vars {
+                    Err(RuntimeError::InvalidVariable)
+                } else {
+                    self.push(self.stack[idx as usize])?;
                     Ok(())
                 }
             },

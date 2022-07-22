@@ -25,6 +25,8 @@ pub enum AsmError {
     DuplicateLabel(String),
     UnknownLabel(String),
     JumpTooLong,
+    InvalidVariable,
+    TooManyVariables,
 }
 
 impl Display for AsmError {
@@ -120,17 +122,22 @@ struct AsmPgm {
     error: Option<AsmError>,
     /// A map storing label definitions by name with there position in bytecode.
     labels: HashMap<String, usize>,
+    /// List holding all global variable names in order.
+    vars: Vec<String>,
 }
 
 impl AsmPgm {
-    /// Removes all noise from an assembler program's line.
-    fn clean_line(line: &str) -> String {
-        // Remove comments:
-        let line = if let Some(pair) = line.split_once("#") {
+    /// Remove comments from line
+    fn remove_comment(line: &str) -> &str {
+       if let Some(pair) = line.split_once("#") {
             pair.0
         } else {
-            &line
-        };
+            line
+        }
+    }
+
+    /// Removes all noise from an assembler program's line.
+    fn clean_line(line: &str) -> String {
         // Trim start and end:
         let line = line.trim();
         // Reduce all whitespaces to a single space (0x20):
@@ -231,6 +238,24 @@ impl AsmPgm {
         }
     }
 
+    /// Returns index number of a variable by name.
+    ///
+    /// This will create new numbers for previously unseen variable names.
+    /// Will emit AsmError::TooManyVariables if number exceeds `u8`.
+    fn get_variable_index(&mut self, name: &str) -> Result<u8, AsmError> {
+        let index = if let Some(index) = self.vars.iter().position(|r| r == name) {
+            index
+        } else {
+            self.vars.push(String::from(name));
+            self.vars.len() - 1
+        };
+        if index <= 0xff {
+            Ok(index as u8)
+        } else {
+            Err(AsmError::TooManyVariables)
+        }
+    }
+
     /// Handles a single instruction of opcode an optional oparg parsed from Assembly file.
     fn parse_instruction(&mut self, opname: &str, oparg: Option<&str>) -> Result<(), AsmError> {
         match opname {
@@ -238,6 +263,7 @@ impl AsmPgm {
             "fin" => self.parse_a0_instruction(op::FIN, oparg),
             "pop" => self.parse_a0_instruction(op::POP, oparg),
             "dup" => self.parse_a0_instruction(op::DUP, oparg),
+            "out" => self.parse_a0_instruction(op::OUT, oparg),
             "add" => self.parse_a0_instruction(op::ADD, oparg),
             "sub" => self.parse_a0_instruction(op::SUB, oparg),
             "mul" => self.parse_a0_instruction(op::MUL, oparg),
@@ -255,6 +281,22 @@ impl AsmPgm {
             "ifle" => self.parse_label_instruction(op::IFLE, oparg),
             "ifgt" => self.parse_label_instruction(op::IFGT, oparg),
             "ifge" => self.parse_label_instruction(op::IFGE, oparg),
+            "load" => {
+                let name = oparg.ok_or(AsmError::MissingArgument)?;
+                if !VALID_LABEL.is_match(name) {
+                    return Err(AsmError::InvalidVariable);
+                }
+                let ix = self.get_variable_index(name)?;
+                self.push_a1_instruction(op::LOAD, ix)
+            }
+            "store" => {
+                let name = oparg.ok_or(AsmError::MissingArgument)?;
+                if !VALID_LABEL.is_match(name) {
+                    return Err(AsmError::InvalidVariable);
+                }
+                let ix = self.get_variable_index(name)?;
+                self.push_a1_instruction(op::STORE, ix)
+            }
             _ => Err(AsmError::UnknownInstruction(String::from(opname)))
         }
     }
@@ -297,6 +339,7 @@ impl AsmPgm {
         for (n, line) in content.lines().enumerate() {
             // File lines start counting at 1:
             self.line_number = n + 1;
+            let line = AsmPgm::remove_comment(line);
             let line = self.parse_label_definition(line)?;
             let line = AsmPgm::clean_line(line);
             self.parse_clean_line(line)?;
@@ -364,6 +407,7 @@ impl AsmPgm {
             Ok(Pgm{
                 name: self.name.clone(),
                 text,
+                vars: self.vars.len() as u8,
             })
         }
     }
@@ -379,6 +423,7 @@ pub fn assemble(name: &str, content: &str) -> Result<Pgm, AsmErrorReport> {
         text_pos: 0,
         error: None,
         labels: Default::default(),
+        vars: Default::default(),
     };
     // evaluate the source code:
     asm_pgm.process_assembly(content);

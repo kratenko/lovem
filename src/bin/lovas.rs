@@ -42,7 +42,7 @@ fn run(pgm: &Pgm, args: &Cli) -> Result<()> {
     vm.trace = args.trace;
     vm.instruction_limit = args.instruction_limit;
     let start = Instant::now();
-    let outcome = vm.run(&pgm.text);
+    let outcome = vm.run(&pgm);
     let duration = start.elapsed();
     match outcome {
         Ok(_) => {

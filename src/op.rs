@@ -24,6 +24,24 @@ pub const PUSH_U8: u8 = 0x02;
 /// oparg: 0
 pub const DUP: u8 = 0x03;
 
+/// opcode: Pop value from stack and put in global variable.
+///
+/// pop: 1, push: 0
+/// oparg: 1B, u8 index of variable
+pub const STORE: u8 = 0x04;
+
+/// opcode: Read value from global variable and push to stack.
+///
+/// pop: 0, push: 1
+/// oparg: 1B, u8 index of variable
+pub const LOAD: u8 = 0x05;
+
+/// opcode: Debug. Output pop value and print it.
+///
+/// pop: 1, push: 0
+/// oparg: 0
+pub const OUT: u8 = 0x06;
+
 /// opcode: Add top two values on stack.
 ///
 /// pop: 2, push: 1
