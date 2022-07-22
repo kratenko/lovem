@@ -31,6 +31,8 @@ struct Cli {
     #[clap(long, default_value_t = 100, help = "Setting the stack size for lovem when running the program.")]
     stack_size: usize,
 
+    #[clap(long, default_value_t = 1000000, help = "Limit max number of instructions allowed for execution. 0 for unlimited.")]
+    instruction_limit: usize,
 }
 
 /// Executes a program in a freshly created lovem VM.
@@ -38,6 +40,7 @@ fn run(pgm: &Pgm, args: &Cli) -> Result<()> {
     // Create our VM instance.
     let mut vm = VM::new(args.stack_size);
     vm.trace = args.trace;
+    vm.instruction_limit = args.instruction_limit;
     let start = Instant::now();
     let outcome = vm.run(&pgm.text);
     let duration = start.elapsed();

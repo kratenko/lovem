@@ -1,0 +1,10 @@
+# Looping a looooong time.
+# This program will not run forever, but you will not see it terminate either.
+  push_u8 0
+loop:
+  push_u8 1
+  add
+  dup
+  ifgt loop
+  pop
+  fin

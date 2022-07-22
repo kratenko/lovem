@@ -12,6 +12,7 @@ pub enum RuntimeError {
     StackOverflow,
     DivisionByZero,
     InvalidJump,
+    InstructionLimitExceeded,
 }
 
 impl Display for RuntimeError {
@@ -42,6 +43,8 @@ pub struct VM {
     pub trace: bool,
     /// Maximal length the stack aver was, during execution.
     pub watermark: usize,
+    /// Maximal number of instructions that are allowed for execution (0 for unlimited).
+    pub instruction_limit: usize,
 }
 
 impl VM {
@@ -52,6 +55,7 @@ impl VM {
             op_cnt: 0,
             trace: false,
             watermark: 0,
+            instruction_limit: 0,
         }
     }
 
@@ -138,6 +142,10 @@ impl VM {
             }
             // Fetch next opcode from program (increases program counter):
             let opcode = self.fetch_u8(pgm)?;
+            // Limit execution by number of instructions that will be executed:
+            if self.instruction_limit != 0 && self.op_cnt >= self.instruction_limit {
+                return Err(RuntimeError::InstructionLimitExceeded);
+            }
             // We count the number of instructions we execute:
             self.op_cnt += 1;
             // If we are done, break loop and stop execution:
