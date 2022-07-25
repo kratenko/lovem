@@ -114,6 +114,18 @@ pub const IFGT: u8 = 0x25;
 /// oparg: 2B, i16 relative jump
 pub const IFGE: u8 = 0x26;
 
+/// opcode: Save return position and jump.
+///
+/// pop: 0, push: 0
+/// oparg: 2B, i16 relative jump
+pub const CALL: u8 = 0x27;
+
+/// opcode: Return from `CALL`.
+///
+/// pop: 0, push: 0
+/// oparg: 0B
+pub const RET: u8 = 0x28;
+
 /// opcode: Terminate program.
 ///
 /// pop: 0, push: 0

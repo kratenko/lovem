@@ -2,6 +2,7 @@ use std::cmp::max;
 use std::error;
 use std::fmt::{Display, Formatter};
 use crate::{op, Pgm};
+use crate::vm::RuntimeError::StackOverflow;
 
 /// An error that happens during execution of a program inside the VM.
 #[derive(Debug, Clone, PartialEq)]
@@ -32,6 +33,8 @@ impl error::Error for RuntimeError {
 pub struct VM {
     /// Value stack holding values during execution.
     pub stack: Vec<i64>,
+    /// Frame Stack, holding frames for nested execution and returning.
+    pub fstack: Vec<usize>,
     /// Program counter (PC),
     ///
     /// Points to instruction in bytecode that is to be executed next.
@@ -56,6 +59,7 @@ impl VM {
     pub fn new(stack_size: usize) -> VM{
         VM{
             stack: Vec::with_capacity(stack_size),
+            fstack: vec![],
             pc: 0,
             fb: 0,
             op_cnt: 0,
@@ -318,6 +322,19 @@ impl VM {
                 } else {
                     self.push(self.stack[idx as usize])?;
                     Ok(())
+                }
+            },
+            op::CALL => {
+                let d = self.fetch_i16(pgm)?;
+                self.fstack.push(self.pc);
+                self.relative_jump(pgm, d)
+            },
+            op::RET => {
+                if let Some(re) = self.fstack.pop() {
+                    self.pc = re;
+                    Ok(())
+                } else {
+                    Err(RuntimeError::StackUnderflow)
                 }
             },
             _ => {

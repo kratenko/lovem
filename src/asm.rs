@@ -297,6 +297,8 @@ impl AsmPgm {
                 let ix = self.get_variable_index(name)?;
                 self.push_a1_instruction(op::STORE, ix)
             }
+            "ret" => self.parse_a0_instruction(op::RET, oparg),
+            "call" => self.parse_label_instruction(op::CALL, oparg),
             _ => Err(AsmError::UnknownInstruction(String::from(opname)))
         }
     }

@@ -1,0 +1,11 @@
+start:
+    push_u8 5
+    call square
+    call square
+    out
+    fin
+
+square:
+    dup
+    mul
+    ret
