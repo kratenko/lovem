@@ -1,8 +1,8 @@
 use std::cmp::max;
 use std::error;
 use std::fmt::{Display, Formatter};
+use moveslice::Moveslice;
 use crate::{op, Pgm};
-use crate::vm::RuntimeError::StackOverflow;
 
 /// An error that happens during execution of a program inside the VM.
 #[derive(Debug, Clone, PartialEq)]
@@ -15,6 +15,7 @@ pub enum RuntimeError {
     InvalidJump,
     InstructionLimitExceeded,
     InvalidVariable,
+    InvalidReturn,
 }
 
 impl Display for RuntimeError {
@@ -33,8 +34,6 @@ impl error::Error for RuntimeError {
 pub struct VM {
     /// Value stack holding values during execution.
     pub stack: Vec<i64>,
-    /// Frame Stack, holding frames for nested execution and returning.
-    pub fstack: Vec<usize>,
     /// Program counter (PC),
     ///
     /// Points to instruction in bytecode that is to be executed next.
@@ -59,7 +58,6 @@ impl VM {
     pub fn new(stack_size: usize) -> VM{
         VM{
             stack: Vec::with_capacity(stack_size),
-            fstack: vec![],
             pc: 0,
             fb: 0,
             op_cnt: 0,
@@ -326,16 +324,36 @@ impl VM {
             },
             op::CALL => {
                 let d = self.fetch_i16(pgm)?;
-                self.fstack.push(self.pc);
+                let n = self.pop()? as usize;
+                if self.stack.len() < self.fb + n {
+                    // there are not enough values on the stack to pass to the function called
+                    return Err(RuntimeError::StackUnderflow);
+                }
+                // push frame to stack
+                self.push(n as i64)?;
+                self.push(self.pc as i64)?;
+                self.push(self.fb as i64)?;
+                // move function parameters to the top, move the frame date down:
+                let end = self.stack.len();
+                let fstart = end - 3;
+                self.stack.moveslice(fstart..end, fstart-n);
+                // move frame base, so that frame starts at first parameter:
+                self.fb = self.stack.len() - n;
+                // jump into function:
                 self.relative_jump(pgm, d)
             },
             op::RET => {
-                if let Some(re) = self.fstack.pop() {
-                    self.pc = re;
-                    Ok(())
-                } else {
-                    Err(RuntimeError::StackUnderflow)
+                let n = *self.stack.get(self.fb - 3).unwrap() as usize;
+                if self.stack.len() != self.fb + n {
+                    return Err(RuntimeError::InvalidReturn);
                 }
+                // move frame to stack top
+                self.stack.moveslice(self.fb-3..self.fb, self.stack.len() - 3);
+                // pop frame
+                self.fb = self.pop()? as usize;
+                self.pc = self.pop()? as usize;
+                self.pop()?;
+                Ok(())
             },
             _ => {
                 Err(RuntimeError::UnknownOpcode(opcode))

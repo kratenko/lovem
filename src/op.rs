@@ -114,9 +114,9 @@ pub const IFGT: u8 = 0x25;
 /// oparg: 2B, i16 relative jump
 pub const IFGE: u8 = 0x26;
 
-/// opcode: Save return position and jump.
+/// opcode: Save return position and jump. Pass n values to called function, where n is popped.
 ///
-/// pop: 0, push: 0
+/// pop: 1, push: 0
 /// oparg: 2B, i16 relative jump
 pub const CALL: u8 = 0x27;
 

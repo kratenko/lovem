@@ -1,6 +1,8 @@
 start:
     push_u8 5
+    push_u8 1
     call square
+    push_u8 1
     call square
     out
     fin
