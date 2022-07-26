@@ -22,7 +22,8 @@ limit of 64 kiB does notsound far-fetched. And the frame base will not even go u
 embedded system. 64 ki on the frame base register would mean 64 ki values of 64 bytes each, leading to 
 a stack size of 4 MiB. That won't happen on my µC. 64 kiB is already a lot. If you want to know how 
 much memory you could address with an unsigned 64 bit index on 64 bit values, you will have to 
-calculate that yourself.
+calculate that yourself. But it might even make sense to let the user choose, what types they want 
+to use for some of those values.
 
 Introducing that will only make the code more difficult to understand right now. And optimising that 
 will be a waste of work on many fronts; I already told you, that I am thinking about changing the 
