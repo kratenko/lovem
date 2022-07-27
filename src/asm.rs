@@ -11,6 +11,11 @@ lazy_static! {
     static ref ANY_WHITESPACES: Regex = regex::Regex::new(r"\s+").unwrap();
     static ref OP_LINE_RE: Regex = regex::Regex::new(r"^(\S+)(?: (.+))?$").unwrap();
     static ref VALID_LABEL: Regex = regex::Regex::new(r"^[A-Za-z][0-9A-Za-z_]{0,31}$").unwrap();
+
+    static ref LINE_VAR: Regex = regex::Regex::new(r"^var\s+(\S.*)$").unwrap();
+    static ref LINE_FUNCTION: Regex = regex::Regex::new(r"^([A-Za-z][0-9A-Za-z_]{0,31})\s*\((.+)?\):$").unwrap();
+    static ref LINE_LABEL: Regex = regex::Regex::new(r"^([A-Za-z][0-9A-Za-z_]{0,31}):$").unwrap();
+    static ref LINE_INSTRUCTION: Regex = regex::Regex::new(r"^(\w{1,32})(?:\s+(.+?))?$").unwrap();
 }
 
 /// Errors that can happen during assembly.
@@ -25,8 +30,16 @@ pub enum AsmError {
     DuplicateLabel(String),
     UnknownLabel(String),
     JumpTooLong,
+    InvalidVariableName(String),
+    DuplicateVariable(String),
+    UnknownVariable(String),
     InvalidVariable,
     TooManyVariables,
+    InstructionOutsideFunction,
+    LabelOutsideFunction,
+    InvalidFunction(String),
+    DuplicateFunction(String),
+    UnknownFunction(String),
 }
 
 impl Display for AsmError {
@@ -102,14 +115,26 @@ impl AsmInstruction {
     }
 }
 
+#[derive(Debug)]
+struct AsmFunction {
+    name: String,
+    line_number: usize,
+    text_pos: usize,
+    vars: Vec<String>,
+    parameters: usize,
+    instructions: Vec<AsmInstruction>,
+    /// A map storing label definitions by name with there position in bytecode.
+    labels: HashMap<String, usize>,
+}
 
 /// A assembler program during parsing/assembling.
 #[derive(Debug)]
 struct AsmPgm {
     /// Name of the program (just a string supplied by caller).
     name: String,
-    /// Vector of parsed assembler instructions, in the order they are in the source file.
-    instructions: Vec<AsmInstruction>,
+    functions: Vec<AsmFunction>,
+    functions_by_name: HashMap<String, usize>,
+    functions_pos: HashMap<String, usize>,
     /// Current line number during parsing.
     ///
     /// Used for error reporting.
@@ -120,8 +145,6 @@ struct AsmPgm {
     text_pos: usize,
     /// The error that happened during parsing/assembling, if any.
     error: Option<AsmError>,
-    /// A map storing label definitions by name with there position in bytecode.
-    labels: HashMap<String, usize>,
     /// List holding all global variable names in order.
     vars: Vec<String>,
 }
@@ -129,11 +152,12 @@ struct AsmPgm {
 impl AsmPgm {
     /// Remove comments from line
     fn remove_comment(line: &str) -> &str {
-       if let Some(pair) = line.split_once("#") {
+       let line = if let Some(pair) = line.split_once("#") {
             pair.0
         } else {
             line
-        }
+        };
+        return line.trim()
     }
 
     /// Removes all noise from an assembler program's line.
@@ -161,8 +185,12 @@ impl AsmPgm {
     /// Adds a single instruction to the end of the AsmProgram.
     fn push_instruction(&mut self, i: AsmInstruction) -> Result<(), AsmError> {
         self.text_pos += i.size();
-        self.instructions.push(i);
-        Ok(())
+        if let Some(fun) = self.functions.last_mut() {
+            fun.instructions.push(i);
+            Ok(())
+        } else {
+            Err(AsmError::InstructionOutsideFunction)
+        }
     }
 
     /// Helper that creates an instruction with 0 bytes of oparg and pushes it.
@@ -269,6 +297,7 @@ impl AsmPgm {
             "mul" => self.parse_a0_instruction(op::MUL, oparg),
             "div" => self.parse_a0_instruction(op::DIV, oparg),
             "mod" => self.parse_a0_instruction(op::MOD, oparg),
+            "rot" => self.parse_a0_instruction(op::ROT, oparg),
             "push_u8" => {
                 let oparg = oparg.ok_or(AsmError::MissingArgument)?;
                 let v = parse_int::parse::<u8>(oparg).or(Err(AsmError::InvalidArgument))?;
@@ -289,13 +318,37 @@ impl AsmPgm {
                 let ix = self.get_variable_index(name)?;
                 self.push_a1_instruction(op::LOAD, ix)
             }
+            "load_l" => {
+                let name = oparg.ok_or(AsmError::MissingArgument)?;
+                if !VALID_LABEL.is_match(name) {
+                    return Err(AsmError::InvalidVariable);
+                }
+                let fun = self.functions.last().unwrap();
+                if let Some(ix) = fun.vars.iter().position(|r| r == name) {
+                    self.push_a1_instruction(op::LOAD_L, ix as u8)
+                } else {
+                    Err(AsmError::UnknownVariable(String::from(name)))
+                }
+            }
+            "store_l" => {
+                let name = oparg.ok_or(AsmError::MissingArgument)?;
+                if !VALID_LABEL.is_match(name) {
+                    return Err(AsmError::InvalidVariable);
+                }
+                let fun = self.functions.last().unwrap();
+                if let Some(ix) = fun.vars.iter().position(|r| r == name) {
+                    self.push_a1_instruction(op::STORE_L, ix as u8)
+                } else {
+                    Err(AsmError::UnknownVariable(String::from(name)))
+                }
+            }
             "store" => {
                 let name = oparg.ok_or(AsmError::MissingArgument)?;
                 if !VALID_LABEL.is_match(name) {
                     return Err(AsmError::InvalidVariable);
                 }
                 let ix = self.get_variable_index(name)?;
-                self.push_a1_instruction(op::STORE, ix)
+                self.push_a1_instruction(op::STORE_L, ix)
             }
             "ret" => self.parse_a0_instruction(op::RET, oparg),
             "call" => self.parse_label_instruction(op::CALL, oparg),
@@ -316,7 +369,7 @@ impl AsmPgm {
     /// used to extract an instruction. This will be the complete line, if there was no
     /// label definition.
     fn parse_label_definition<'a>(&mut self, line: &'a str) -> Result<&'a str, AsmError> {
-        if let Some((label, rest)) = line.split_once(":") {
+/*        if let Some((label, rest)) = line.split_once(":") {
             let label = label.trim_start();
             if VALID_LABEL.is_match(label) {
                 if self.labels.contains_key(label) {
@@ -330,6 +383,90 @@ impl AsmPgm {
             }
         } else {
             Ok(line)
+        }*/
+        Ok(line)
+    }
+
+    fn parse_line(&mut self, line: &str) -> Result<(), AsmError> {
+        if line.is_empty() {
+            Ok(())
+        } else if let Some(c) = LINE_VAR.captures(line) {
+            let var_list = c.get(1).unwrap().as_str();
+            for var in var_list.split(",") {
+                let var = var.trim();
+                if !VALID_LABEL.is_match(var) {
+                    return Err(AsmError::InvalidVariableName(String::from(var)));
+                }
+                let vars = if let Some(fun) = self.functions.last_mut() {
+                    // local variable
+                    &mut fun.vars
+                } else {
+                    // global variable
+                    &mut self.vars
+                };
+                if vars.contains(&String::from(var)) {
+                    return Err(AsmError::DuplicateVariable(String::from(var)));
+                } else if vars.len() > 255 {
+                    return Err(AsmError::TooManyVariables);
+                } else {
+                    vars.push(String::from(var));
+                }
+            }
+            Ok(())
+        } else if let Some(c) = LINE_FUNCTION.captures(line) {
+            let funname = c.get(1).unwrap().as_str().trim();
+            if self.functions_by_name.contains_key(funname) {
+                return Err(AsmError::DuplicateFunction(String::from(funname)))
+            }
+            let mut vars = vec![];
+            if let Some(parms) = c.get(2) {
+                for parm in parms.as_str().split(",") {
+                    let parm = parm.trim();
+                    if !VALID_LABEL.is_match(parm) {
+                        return Err(AsmError::InvalidVariableName(String::from(parm)));
+                    }
+                    if vars.contains(&String::from(parm)) {
+                        return Err(AsmError::DuplicateVariable(String::from(parm)));
+                    } else if vars.len() > 255 {
+                        return Err(AsmError::TooManyVariables);
+                    } else {
+                        vars.push(String::from(parm));
+                    }
+                }
+            }
+            let parameters = vars.len();
+            let fun = AsmFunction{
+                name: String::from(funname),
+                line_number: self.line_number,
+                text_pos: self.text_pos,
+                vars,
+                parameters,
+                instructions: vec![],
+                labels: Default::default()
+            };
+            self.functions_by_name.insert(String::from(funname), self.functions.len());
+            self.functions.push(fun);
+            self.functions_pos.insert(String::from(funname), self.text_pos);
+            Ok(())
+        } else if let Some(c) = LINE_LABEL.captures(line) {
+            if let Some(fun) = self.functions.last_mut() {
+                let name = c.get(1).unwrap().as_str();
+                if fun.labels.contains_key(name) {
+                    Err(AsmError::DuplicateLabel(String::from(name)))
+                } else {
+                    fun.labels.insert(String::from(name), self.text_pos);
+                    Ok(())
+                }
+            } else {
+                Err(AsmError::LabelOutsideFunction)
+            }
+        } else if let Some(c) = LINE_INSTRUCTION.captures(line) {
+            let opname = c.get(1).unwrap().as_str();
+            let oparg = c.get(2).map(|m| m.as_str());
+            self.parse_instruction(opname, oparg)?;
+            Ok(())
+        } else {
+            Err(AsmError::InvalidLine)
         }
     }
 
@@ -342,9 +479,7 @@ impl AsmPgm {
             // File lines start counting at 1:
             self.line_number = n + 1;
             let line = AsmPgm::remove_comment(line);
-            let line = self.parse_label_definition(line)?;
-            let line = AsmPgm::clean_line(line);
-            self.parse_clean_line(line)?;
+            self.parse_line(line)?;
         }
         Ok(())
     }
@@ -356,6 +491,40 @@ impl AsmPgm {
     /// Opargs have been filled with placeholders before. The number of bytes should not be
     /// altered, because jump destinations are calculated from the number of bytes.
     fn update_instructions(&mut self) -> Result<(), AsmError> {
+        for fun in &mut self.functions {
+            for i in &mut fun.instructions {
+                self.line_number = i.line_number;
+                if i.opcode == op::CALL {
+                    if let Some(label) = &i.argument_token {
+                        if let Some(&dest_idx) = self.functions_by_name.get(label) {
+                            let dest = *self.functions_pos.get(label).unwrap();
+                            let src = i.pos + i.size();
+                            if src.abs_diff(dest) > i16::MAX as usize {
+                                return Err(AsmError::JumpTooLong);
+                            }
+                            let delta = (dest as i64 - src as i64) as i16;
+                            i.oparg[..2].copy_from_slice(&delta.to_be_bytes()[..2]);
+                        } else {
+                            return Err(AsmError::UnknownLabel(String::from(label)));
+                        }
+                    }
+                } else {
+                    if let Some(label) = &i.argument_token {
+                        if let Some(&dest) = fun.labels.get(label) {
+                            let src = i.pos + i.size();
+                            if src.abs_diff(dest) > i16::MAX as usize {
+                                return Err(AsmError::JumpTooLong);
+                            }
+                            let delta = (dest as i64 - src as i64) as i16;
+                            i.oparg[..2].copy_from_slice(&delta.to_be_bytes()[..2]);
+                        } else {
+                            return Err(AsmError::UnknownLabel(String::from(label)));
+                        }
+                    }
+                }
+            }
+        }
+        /*
         for i in &mut self.instructions {
             self.line_number = i.line_number;
             if let Some(label) = &i.argument_token {
@@ -371,6 +540,7 @@ impl AsmPgm {
                 }
             }
         }
+         */
         Ok(())
     }
 
@@ -392,6 +562,7 @@ impl AsmPgm {
 
     /// Convert parsed assembly source to runnable program (or error report).
     fn to_program(&self) -> Result<Pgm, AsmErrorReport> {
+        println!("{:?}", self);
         if let Some(e) = &self.error {
             // Assembling failed:
             Err(AsmErrorReport{
@@ -402,9 +573,11 @@ impl AsmPgm {
         } else {
             // Assembling succeeded, return a Pgm instance:
             let mut text: Vec<u8> = vec![];
-            for i in &self.instructions {
-                text.push(i.opcode);
-                text.extend(&i.oparg);
+            for f in &self.functions {
+                for i in &f.instructions {
+                    text.push(i.opcode);
+                    text.extend(&i.oparg);
+                }
             }
             Ok(Pgm{
                 name: self.name.clone(),
@@ -420,12 +593,13 @@ pub fn assemble(name: &str, content: &str) -> Result<Pgm, AsmErrorReport> {
     // create a new, clean instance to fill during parsing:
     let mut asm_pgm = AsmPgm {
         name: String::from(name),
-        instructions: vec![],
+        functions: vec![],
         line_number: 0,
         text_pos: 0,
         error: None,
-        labels: Default::default(),
         vars: Default::default(),
+        functions_by_name: Default::default(),
+        functions_pos: Default::default()
     };
     // evaluate the source code:
     asm_pgm.process_assembly(content);
