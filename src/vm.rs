@@ -42,7 +42,6 @@ pub struct VM {
     ///
     /// Pointer to the bottom of the stack for the current frame.
     pub fb: usize,
-    pub lv: usize,
     /// Operation counter.
     ///
     /// Let's us know how "long" the execution took.
@@ -61,7 +60,6 @@ impl VM {
             stack: Vec::with_capacity(stack_size),
             pc: 0,
             fb: 0,
-            lv: 0,
             op_cnt: 0,
             trace: false,
             watermark: 0,
@@ -247,13 +245,6 @@ impl VM {
                     self.push(a % b)
                 }
             },
-            op::ROT => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                self.push(b)?;
-                self.push(a)?;
-                Ok(())
-            },
             op::GOTO => {
                 let d = self.fetch_i16(pgm)?;
                 self.relative_jump(pgm, d)
@@ -331,25 +322,6 @@ impl VM {
                     Ok(())
                 }
             },
-            op::STORE_L => {
-                let idx = self.fetch_u8(pgm)?;
-                let v = self.pop()?;
-                if let Some(var) = self.stack.get_mut(self.lv + idx as usize) {
-                    *var = v;
-                    Ok(())
-                } else {
-                    Err(RuntimeError::InvalidVariable)
-                }
-            },
-            op::LOAD_L => {
-                let idx = self.fetch_u8(pgm)?;
-                if let Some(var) = self.stack.get(self.lv + idx as usize) {
-                    let var = *var;
-                    self.push(var)
-                } else {
-                    Err(RuntimeError::InvalidVariable)
-                }
-            }
             op::CALL => {
                 let d = self.fetch_i16(pgm)?;
                 let n = self.pop()? as usize;
@@ -361,32 +333,26 @@ impl VM {
                 self.push(n as i64)?;
                 self.push(self.pc as i64)?;
                 self.push(self.fb as i64)?;
-                // update frame registers
-                self.fb = self.stack.len();
-                self.lv = self.stack.len() - 3 - n;
+                // move function parameters to the top, move the frame date down:
+                let end = self.stack.len();
+                let fstart = end - 3;
+                self.stack.moveslice(fstart..end, fstart-n);
+                // move frame base, so that frame starts at first parameter:
+                self.fb = self.stack.len() - n;
                 // jump into function:
                 self.relative_jump(pgm, d)
             },
             op::RET => {
-                // remove values left by function:
-                while self.stack.len() > self.fb {
-                    self.pop()?;
+                let n = *self.stack.get(self.fb - 3).unwrap() as usize;
+                if self.stack.len() != self.fb + n {
+                    return Err(RuntimeError::InvalidReturn);
                 }
-                // pop frame:
-                self.fb = self.stack.pop().unwrap() as usize;
+                // move frame to stack top
+                self.stack.moveslice(self.fb-3..self.fb, self.stack.len() - 3);
+                // pop frame
+                self.fb = self.pop()? as usize;
                 self.pc = self.pop()? as usize;
-                let n = self.pop()? as usize;
-                // pop local vars left that are not parameters:
-                while self.stack.len() > self.lv + n {
-                    self.pop()?;
-                }
-                // restore lv:
-                if self.fb > pgm.vars as usize {
-                    let prev_n = *self.stack.get(self.fb-3).unwrap() as usize;
-                    self.lv = self.fb - 3 - prev_n;
-                } else {
-                    self.lv = pgm.vars as usize;
-                }
+                self.pop()?;
                 Ok(())
             },
             _ => {

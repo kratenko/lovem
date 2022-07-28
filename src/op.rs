@@ -36,23 +36,11 @@ pub const STORE: u8 = 0x04;
 /// oparg: 1B, u8 index of variable
 pub const LOAD: u8 = 0x05;
 
-/// opcode: Pop value from stack and put in global variable.
-///
-/// pop: 1, push: 0
-/// oparg: 1B, u8 index of variable
-pub const STORE_L: u8 = 0x06;
-
-/// opcode: Read value from global variable and push to stack.
-///
-/// pop: 0, push: 1
-/// oparg: 1B, u8 index of variable
-pub const LOAD_L: u8 = 0x07;
-
 /// opcode: Debug. Output pop value and print it.
 ///
 /// pop: 1, push: 0
 /// oparg: 0
-pub const OUT: u8 = 0x08;
+pub const OUT: u8 = 0x06;
 
 /// opcode: Add top two values on stack.
 ///
@@ -83,8 +71,6 @@ pub const DIV: u8 = 0x13;
 /// pop: 2, push: 1
 /// oparg: 0
 pub const MOD: u8 = 0x14;
-
-pub const ROT: u8 = 0x15;
 
 /// opcode: Relative jump.
 ///
