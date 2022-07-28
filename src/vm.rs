@@ -1,6 +1,7 @@
 use std::cmp::max;
 use std::error;
 use std::fmt::{Display, Formatter};
+use moveslice::Moveslice;
 use crate::{op, Pgm};
 
 /// An error that happens during execution of a program inside the VM.

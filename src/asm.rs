@@ -496,7 +496,8 @@ impl AsmPgm {
                 self.line_number = i.line_number;
                 if i.opcode == op::CALL {
                     if let Some(label) = &i.argument_token {
-                        if let Some(&dest) = self.functions_pos.get(label) {
+                        if let Some(&dest_idx) = self.functions_by_name.get(label) {
+                            let dest = *self.functions_pos.get(label).unwrap();
                             let src = i.pos + i.size();
                             if src.abs_diff(dest) > i16::MAX as usize {
                                 return Err(AsmError::JumpTooLong);
