@@ -245,6 +245,12 @@ impl VM {
                     self.push(a % b)
                 }
             },
+            op::ROT => {
+                let a = self.pop()?;
+                let b = self.pop()?;
+                self.push(a)?;
+                self.push(b)
+            }
             op::GOTO => {
                 let d = self.fetch_i16(pgm)?;
                 self.relative_jump(pgm, d)
@@ -322,6 +328,36 @@ impl VM {
                     Ok(())
                 }
             },
+            op::STORE_L => {
+                let idx = self.fetch_u8(pgm)? as usize;
+                if self.fb + idx >= self.stack.len() {
+                    Err(RuntimeError::StackOverflow)
+                } else {
+                    let v = self.pop()?;
+                    self.stack[self.fb + idx] = v;
+                    Ok(())
+                }
+            },
+            op::LOAD_L => {
+                let idx = self.fetch_u8(pgm)? as usize;
+                if self.fb + idx >= self.stack.len() {
+                    Err(RuntimeError::StackOverflow)
+                } else {
+                    self.push(self.stack[self.fb + idx])?;
+                    Ok(())
+                }
+            },
+            op::SWAP_L => {
+                let idx = self.fetch_u8(pgm)? as usize;
+                if self.fb + idx >= self.stack.len() {
+                    Err(RuntimeError::StackOverflow)
+                } else {
+                    let v = self.pop()?;
+                    self.push(self.stack[self.fb + idx])?;
+                    self.stack[self.fb + idx] = v;
+                    Ok(())
+                }
+            },
             op::CALL => {
                 let d = self.fetch_i16(pgm)?;
                 let n = self.pop()? as usize;
@@ -347,12 +383,19 @@ impl VM {
                 if self.stack.len() != self.fb + n {
                     return Err(RuntimeError::InvalidReturn);
                 }
-                // move frame to stack top
-                self.stack.moveslice(self.fb-3..self.fb, self.stack.len() - 3);
-                // pop frame
-                self.fb = self.pop()? as usize;
-                self.pc = self.pop()? as usize;
-                self.pop()?;
+                // read and remove frame data:
+                let upper = self.fb - 3;
+                let n = self.stack.remove(upper) as usize;
+                self.pc = self.stack.remove(upper) as usize;
+                self.fb = self.stack.remove(upper) as usize;
+                let should = upper + n;
+                // remove excessive values on top of stack:
+                while self.stack.len() > should {
+                    self.pop()?;
+                }
+                while self.stack.len() < should {
+                    self.push(0)?;
+                }
                 Ok(())
             },
             _ => {

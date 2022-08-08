@@ -25,7 +25,9 @@ pub enum AsmError {
     DuplicateLabel(String),
     UnknownLabel(String),
     JumpTooLong,
-    InvalidVariable,
+    InvalidVariable(String),
+    DuplicateVariable(String),
+    UnknownVariable(String),
     TooManyVariables,
 }
 
@@ -124,6 +126,8 @@ struct AsmPgm {
     labels: HashMap<String, usize>,
     /// List holding all global variable names in order.
     vars: Vec<String>,
+    ///
+    locals: Vec<String>,
 }
 
 impl AsmPgm {
@@ -256,6 +260,39 @@ impl AsmPgm {
         }
     }
 
+    fn parse_local_declaration(&mut self, oparg: Option<&str>) -> Result<(), AsmError> {
+        if let Some(vname) = oparg {
+            if VALID_LABEL.is_match(vname) {
+                if self.locals.contains(&String::from(vname)) {
+                    Err(AsmError::DuplicateVariable(String::from(vname)))
+                } else if self.locals.len() >= 255 {
+                    Err(AsmError::TooManyVariables)
+                } else {
+                    self.locals.push(String::from(vname));
+                    Ok(())
+                }
+            } else {
+                Err(AsmError::InvalidVariable(String::from(vname)))
+            }
+        } else {
+            self.locals.clear();
+            Ok(())
+        }
+    }
+
+    fn parse_local_instruction(&mut self, opcode: u8, oparg: Option<&str>) -> Result<(), AsmError> {
+        let name = oparg.ok_or(AsmError::MissingArgument)?;
+        if !VALID_LABEL.is_match(name) {
+            Err(AsmError::InvalidVariable(String::from(name)))
+        } else {
+            if let Some(index) = self.locals.iter().position(|r| r == name) {
+                self.push_a1_instruction(opcode, index as u8)
+            } else {
+                Err(AsmError::UnknownVariable(String::from(name)))
+            }
+        }
+    }
+
     /// Handles a single instruction of opcode an optional oparg parsed from Assembly file.
     fn parse_instruction(&mut self, opname: &str, oparg: Option<&str>) -> Result<(), AsmError> {
         match opname {
@@ -269,6 +306,7 @@ impl AsmPgm {
             "mul" => self.parse_a0_instruction(op::MUL, oparg),
             "div" => self.parse_a0_instruction(op::DIV, oparg),
             "mod" => self.parse_a0_instruction(op::MOD, oparg),
+            "rot" => self.parse_a0_instruction(op::ROT, oparg),
             "push_u8" => {
                 let oparg = oparg.ok_or(AsmError::MissingArgument)?;
                 let v = parse_int::parse::<u8>(oparg).or(Err(AsmError::InvalidArgument))?;
@@ -284,7 +322,7 @@ impl AsmPgm {
             "load" => {
                 let name = oparg.ok_or(AsmError::MissingArgument)?;
                 if !VALID_LABEL.is_match(name) {
-                    return Err(AsmError::InvalidVariable);
+                    return Err(AsmError::InvalidVariable(String::from(name)));
                 }
                 let ix = self.get_variable_index(name)?;
                 self.push_a1_instruction(op::LOAD, ix)
@@ -292,13 +330,17 @@ impl AsmPgm {
             "store" => {
                 let name = oparg.ok_or(AsmError::MissingArgument)?;
                 if !VALID_LABEL.is_match(name) {
-                    return Err(AsmError::InvalidVariable);
+                    return Err(AsmError::InvalidVariable(String::from(name)));
                 }
                 let ix = self.get_variable_index(name)?;
                 self.push_a1_instruction(op::STORE, ix)
             }
             "ret" => self.parse_a0_instruction(op::RET, oparg),
             "call" => self.parse_label_instruction(op::CALL, oparg),
+            "local" => self.parse_local_declaration(oparg),
+            "load_l" => self.parse_local_instruction(op::LOAD_L, oparg),
+            "store_l" => self.parse_local_instruction(op::STORE_L, oparg),
+            "swap_l" => self.parse_local_instruction(op::SWAP_L, oparg),
             _ => Err(AsmError::UnknownInstruction(String::from(opname)))
         }
     }
@@ -426,6 +468,7 @@ pub fn assemble(name: &str, content: &str) -> Result<Pgm, AsmErrorReport> {
         error: None,
         labels: Default::default(),
         vars: Default::default(),
+        locals: Default::default(),
     };
     // evaluate the source code:
     asm_pgm.process_assembly(content);

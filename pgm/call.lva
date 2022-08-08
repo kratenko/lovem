@@ -1,13 +1,54 @@
 start:
     push_u8 5
-    push_u8 1
-    call square
-    push_u8 1
-    call square
+    push_u8 3
+    push_u8 2
+    call pow
+    pop
     out
     fin
+
 
 square:
     dup
     mul
     ret
+
+
+pow:
+        local
+        local a
+        local b
+        # we cannot handle a negative exponent, return 0 instead:
+        load_l b
+        iflt fail
+        # check for exponent zero
+        load_l b
+        ifeq zero
+        load_l a
+        load_l b
+    loop:
+        push_u8 1
+        sub
+        dup
+        ifle done
+        rot
+        load_l a
+        mul
+        rot
+        goto loop
+    done:
+        pop
+        store_l a
+        ret
+    zero:
+        # we cannot handle 0^0:
+        load_l a
+        ifeq fail
+        # a^0 for a!=0 is 1:
+        push_u8 1
+        store_l a
+        ret
+    fail:
+        push_u8 0
+        store_l a
+        ret

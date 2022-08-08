@@ -36,11 +36,29 @@ pub const STORE: u8 = 0x04;
 /// oparg: 1B, u8 index of variable
 pub const LOAD: u8 = 0x05;
 
+/// opcode: Pop value from stack and put in local variable.
+///
+/// pop: 1, push: 0
+/// oparg: 1B, u8 index of variable
+pub const STORE_L: u8 = 0x06;
+
+/// opcode: Read value from local variable and push to stack.
+///
+/// pop: 0, push: 1
+/// oparg: 1B, u8 index of variable
+pub const LOAD_L: u8 = 0x07;
+
+/// opcode: Change value of local variable with TOS.
+///
+/// pop: 1, push: 1
+/// oparg: 1B, u8 index of variable
+pub const SWAP_L: u8 = 0x08;
+
 /// opcode: Debug. Output pop value and print it.
 ///
 /// pop: 1, push: 0
 /// oparg: 0
-pub const OUT: u8 = 0x06;
+pub const OUT: u8 = 0x09;
 
 /// opcode: Add top two values on stack.
 ///
@@ -71,6 +89,8 @@ pub const DIV: u8 = 0x13;
 /// pop: 2, push: 1
 /// oparg: 0
 pub const MOD: u8 = 0x14;
+
+pub const ROT: u8 = 0x15;
 
 /// opcode: Relative jump.
 ///
