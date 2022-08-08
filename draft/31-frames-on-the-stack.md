@@ -162,7 +162,7 @@ complicated compared to the rest of what we are doing.
 
 ## Conclusion
 I am not too happy with the result. But it gave me a few ideas, when I was trying to make it better. 
-We will work on that during the coming journal entries. The assembler will more complicated. I must 
+We will work on that during the coming journal entries. The assembler will get more complicated. I must 
 watch out that I do not turn it into a higher language by accident. It should remain assembly, but there 
 is no need to support features that will only be there to break things. I'm looking forward to seeing, how 
 far I will take it.
