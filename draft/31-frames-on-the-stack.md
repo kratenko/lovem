@@ -109,7 +109,7 @@ Stack change:
   |      |       |      |
   |      |       |      +-- frame moved down, fb changed (inside function)
   |      |       |
-  |      |       +-- frame pushed, not before move of frame
+  |      |       +-- frame pushed, before move of frame
   |      |
   |      +-- parameters pushed
   |

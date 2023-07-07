@@ -13,7 +13,7 @@ Efficiency is, of course in the back of my head during that probing around. My m
 mentioned before, is not speed, but size.
 
 And yet I seem to be wasting it without much of a thought. The call operation I used during my previous 
-entry pushes 3 values on the stack for every call. That is 192 bytes of overhead! It sounds bad for a 
+entry pushes 3 values on the stack for every call. That is 24 bytes of overhead! It sounds bad for an 
 embedded VM that is supposed to be lightweight. But I simply do not see it as a concern for now.
 
 Optimising the way I push frames to the stack can be done later. I would think, a single `i64` value 
