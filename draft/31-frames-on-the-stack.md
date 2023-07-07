@@ -10,11 +10,11 @@ __We take a look at a frame stack solution that works on the main stack.__
 
 In my last entry, I said I was not happy with introducing a second stack to the VM. Today we prove that 
 doing this with one stack only is possible. It is not the solution I am going to use, but it explores 
-a new approach, that explicitly separates parameters from values that should not be accesible from the 
+a new approach, that explicitly separates parameters from values that should not be accessible from the 
 called function.
 
 ## `call` with parameters
-We modify our `call` opcode slightly. There is change in1 code, only in the comments documenting, how the 
+We modify our `call` opcode slightly. There is no change in the code, only in the comments documenting, how the 
 stack will be effected.
 
 ~~~ rust title="src/op.rs" linenums="117" hl_lines="3"
@@ -28,7 +28,7 @@ pub const CALL: u8 = 0x27;
 Our assembler does not need any change, as the opnames and their opargs don't change.
 
 The VM has the most changes. For one, the `fstack` gets nicked, as we do not want to use it.
-And then is the change to the handlers for `call` and `ret`, of course:
+And then there is the change to the handlers for `call` and `ret`, of course:
 
 ~~~ rust title="src/vm.rs" linenums="325"
 op::CALL => {
@@ -42,7 +42,7 @@ op::CALL => {
     self.push(n as i64)?;
     self.push(self.pc as i64)?;
     self.push(self.fb as i64)?;
-    // move function parameters to the top, move the frame date down:
+    // move function parameters to the top, move the frame base down:
     let end = self.stack.len();
     let fstart = end - 3;
     self.stack.moveslice(fstart..end, fstart-n);
@@ -79,7 +79,7 @@ don't need. This is both simple and flexible.
 
 ## Stack manipulation for calls
 We still need to push our frame information on that stack as well. This gets a little messy, as you can 
-witness in the code above. For the call, w are moving the frame information below the parameters, 
+witness in the code above. For the call, we are moving the frame information below the parameters, 
 after those have been pushed. What happens? Let us take a look. The following is an attempt to illustrate 
 the contents of the stack during function call and return. There are 5 states of the stack during execution
 listed from left to right. Values are pushed to the top.
@@ -96,14 +96,14 @@ Legend:
 Stack change:
 
                       
-                 pc     p2
-                 fb     p1
+                 fb     p2
+                 pc     p1
          n       n    ->p0
          p2      p2     fb     p2
          p1      p1     pc     p1
          p0      p0     n      p0    
   v1     v1      v1     v1     v1
-->v0   ->v2    ->v0     v0   ->v0
+->v0   ->v0    ->v0     v0   ->v0
   |      |       |      |      |
   |      |       |      |      +-- after return
   |      |       |      |

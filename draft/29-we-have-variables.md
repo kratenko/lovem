@@ -44,14 +44,14 @@ There are two new operations for handling global variables:
 ## Variables in the assembler
 This took more work than the changes in the VM. That is good, because we want to hide complexity away from 
 the VM. The assembler runs on a powerful computer, and typically programs are run more often than they are 
-assembled/compiled. I want names variables in assembler source. The VM works only with numbers to identify 
+assembled/compiled. I want named variables in assembler source. The VM works only with numbers to identify 
 them. Our assembler translates that for us.
 
 `store` and `load` each take the name of a variable as argument. When the assembler finds a new variable name, 
 it is assigned a number (starting at 0). We actually just chunk them in a Vector and run through it everytime. 
 We only support 256 variables, so there is no need to optimise there. It's fast enough. The index number is 
 written as `u8` as a single byte oparg. I leave it to you to look at the new source code in `asm.rs` this time.
-It is not too hard, and you should no enough Rust by now.
+It is not too hard, and you should know enough Rust by now.
 
 ## A new Program
 There is more information to store for a Program now, than only the text (aka. the bytecode): the global 

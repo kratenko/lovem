@@ -8,7 +8,7 @@ tag: v0.0.14-journey
 
 __A `goto` is fine and all - but we want to `return`!__
 
-We have the ability to jump around in out program. But it is only `goto`. There is no way to add a 
+We have the ability to jump around in our program. But it is only `goto`. There is no way to add a 
 `return` yet. You would have to `goto` back - and how would you know where to? We will implement 
 one way to do that - and then talk about it a bit.
 
@@ -134,7 +134,7 @@ limit resources between two different parts; if any of those runs out, you fail.
 chunk of memory to be used. Yes, I could use the same chunk from both ends, as it is custom for systems with 
 stack and heap memory. But I don't like to do that here... And there is still the issue of where to put the local 
 variables. One more thing we are going to introduce is calling external functions. Our current calling convention 
-looks a little week for that as well.
+looks a little weak for that as well.
 
 ## Ways out of it
 The solution I want to go for is, to put all of my data in a single stack. The frame information should be 

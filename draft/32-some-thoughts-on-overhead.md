@@ -18,7 +18,7 @@ embedded VM that is supposed to be lightweight. But I simply do not see it as a 
 
 Optimising the way I push frames to the stack can be done later. I would think, a single `i64` value 
 would be enough to hold all of those. How big can the PC become in a constrained VM? A program size 
-limit of 64 kiB does notsound far-fetched. And the frame base will not even go up all that way inside an 
+limit of 64 kiB does not sound far-fetched. And the frame base will not even go up all that way inside an 
 embedded system. 64 ki on the frame base register would mean 64 ki values of 64 bytes each, leading to 
 a stack size of 4 MiB. That won't happen on my µC. 64 kiB is already a lot. If you want to know how 
 much memory you could address with an unsigned 64 bit index on 64 bit values, you will have to 
