@@ -25,9 +25,9 @@ code, if you clone the repository locally.
 # License
 I have not decided, yet. I will be aiming for something permissive, so you 
 can use it in commercial products and for your privat education. That means 
-the program code and such. The journal entries (aka dev blog posts) are the 
-owned by there authors (that would be me), which all implications you get 
-from published texts. That means, you can quote them.
+the program code and such. The journal entries (aka dev blog posts) are 
+owned by their authors (that would be me), with all implications you get 
+for published texts. That means, you can quote them.
 
 # Participate
 Direct participation is difficult, at this stage, as I develop a plan as I 
