@@ -38,14 +38,14 @@ And it is so painful. Half of the things you do, when writing C/C++, you will no
 in the same way. Every piece of memory is owned. You can borrow it and return it, but it cannot be owned 
 in two places at once. And if any part of the program has writing access to it, no other part may have 
 any access. This makes some data structures complicated or impossible (there are ways around it), and you 
-will have to thing quite differently. But if you give in on that way of thinking, you can gain so much. 
+will have to think quite differently. But if you give in on that way of thinking, you can gain so much. 
 Even peace of the mind, as the coding world will look a lot saner inside Rust source code. This will, of 
 course, come with the price, that all code in other languages will start to feel dirty to you, but that 
 is the way.
 
 Also, there are a lot of ways to write code, that you cannot add to a language that already exists. 
 C and C++ will never be freed of their heritage; they will stay what they are, with all their pros 
-and cons. Things are solved differently. Did I mention there is no `NULL`? And I have never missed 
+and cons. Things are solved differently in Rust. Did I mention there is no `NULL`? And I have never missed 
 it for a moment. Rust solves the problems other languages solve with `NULL` by using enums. That comes 
 with certainty and safety all the way. There are no exceptions either. That problem is also solved 
 by using enums. The way the language embraces those, they are a really powerful feature! And there are 
@@ -70,10 +70,10 @@ thing (writing a VM) in a new, quite different language is a mouth full, I know.
 ## Didn't you say, you use C/C++?
 Yes I did say that. And I do use those. It is not easy to change that, when you have a certain amount 
 of legacy code (and not much experience with the new language, as we do not really have, yet). But we 
-do have a saying these days. Often, after an hours long debugging session, when we find the bug, 
-understand it and fix it, there is this realisation, that fit in the sentence:
+do have a saying these days. Often, after a debugging session that lasted for hours, when we find the bug, 
+understand it and fix it, there is this realisation, that fits in the sentence:
 
-"Mit Rust wär das nicht passiert." &mdash; "This would not have happened with Rust."
+"Mit Rust wär' das nicht passiert." &mdash; "This would not have happened with Rust."
 
 So, this will not happen to me with this project, because those things will not happen with Rust!
 

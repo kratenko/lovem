@@ -1,6 +1,6 @@
 ---
-entry: 28
-published: 2022-07-31
+entry: 29
+published: 2024-02-02
 tag: v0.0.12-journey
 ---
 
@@ -41,6 +41,8 @@ is around 4611686018427 seconds or just about 146135 years. Is that a lot?
 
 Oh, and by the way, the Rust professionals reading this will have spotted a potentially false claim there.
 While we run our program in debug mode, there will be no integer wraparound, instead the program will panic.
+If we build our Rust program in release mode, we will have integer wraparound, and will (theoretically) 
+eventually reach the end of our loop.
 But that is besides the point.
 
 ## Limited execution

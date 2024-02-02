@@ -50,8 +50,8 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/kratenko
-    - icon: fontawesome/brands/twitter
-      link: https://twitter.com/garstenko
+    - icon: fontawesome/brands/mastodon
+      link: https://chaos.social/@kratenko
 
 
 # Extensions

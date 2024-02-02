@@ -1,6 +1,6 @@
 # The Journey towards Lovem
 This is a journal for my journey towards building 
-a **the low overhead virtual embedded machine**.
+a **low overhead virtual embedded machine**.
 
 What that is and why I started building it will come clear from the entries in this journal.
 For some reason I feel the need to add the history of lovem's creation (so far) to it. 
@@ -17,14 +17,12 @@ I hope it will be useful to someone &ndash; maybe even for my future self?
 Lovem is meant to become a virtual machine for use in constrained embedded devices. 
 It was started by me, @kratenko, for reasons I am writing about in this journal
 
-You can find lovem on github: <br>
+You can find lovem on GitHub: <br>
 https://github.com/kratenko/lovem
 
 ## Me
 If for some reason you want to contact me, you can find me on 
-twitter [@garstenko][garstenko] or of course on github as :octicons-mark-github-16: @kratenko.
-
-[garstenko]: https://twitter.com/garstenko
+Mastodon <a href="https://chaos.social/@kratenko">\@kratenko\@chaos.social</a> or of course on GitHub as :octicons-mark-github-16: @kratenko.
 
 ## This site
 So I quickly googled `mkdocs blog` to find some sensible way to document my journey online. 
