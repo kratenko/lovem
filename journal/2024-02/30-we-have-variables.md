@@ -1,6 +1,6 @@
 ---
-entry: 29
-published: 2022-07-31
+entry: 30
+published: 2024-02-11
 tag: v0.0.13-journey
 ---
 
@@ -32,7 +32,7 @@ It does that by the newly introduces special *Frame Base Register (FB)*.
 What's with that funny name? This is something I will need later, when I introduce real 
 function calls inside the VM. A call will create a new frame that is somewhat like a 
 new local execution environment. This will also allow for local variables (told ya, I want those).
-But for know we have up to 256 global variables at our disposal. That is quite a bit. 
+But for now we have up to 256 global variables at our disposal. That is quite a bit. 
 
 ## Variable operations
 There are two new operations for handling global variables:
